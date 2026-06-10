@@ -14,28 +14,25 @@ venv/
 node_modules/
 .julia/
 zig-cache/
-.dep/
-deps/
 
 # Logs and temp files
 *.log
 *.tmp
 *.swp
 *.swo
-*.out
 
 # Environment
 .env
 .env.local
-.env.*
+*.env.*
 
 # Editors
 .vscode/
 .idea/
-*.sublime-project
-*.sublime-workspace
+*.swp
+*.swo
 
-# OS
+# System files
 .DS_Store
 Thumbs.db
 
@@ -43,25 +40,6 @@ Thumbs.db
 coverage/
 htmlcov/
 .coverage
-
-# Python specific
-*.pyc
-__pycache__/
-*.pyo
-*.pyd
-.Python
-*.so
-.coverage
-.pytest_cache/
-.mypy_cache/
-
-# Build outputs
-*.min.js
-*.min.css
-bundle.js
-*.war
-*.jar
-*.class
 
 # Compressed files
 *.zip
@@ -82,8 +60,4 @@ bundle.js
 *.Z
 *.lz
 *.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
 ```

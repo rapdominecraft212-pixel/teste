@@ -1,17 +1,17 @@
 // ============== PRODUTOS ==============
 const products = [
-  { id: 1, name: "Ração Premium Cães", category: "caes", price: 89.90, image: "https://images.unsplash.com/photo-1565703992667-4404b5e7a64c?w=600&q=90&fit=crop", badge: "Mais Vendido" },
-  { id: 2, name: "Ração Premium Gatos", category: "gatos", price: 79.90, image: "https://images.unsplash.com/photo-1589912022670-0d4b1b3a1c7a?w=600&q=90&fit=crop", badge: "" },
-  { id: 3, name: "Coleira Conforto", category: "acessorios", price: 49.90, image: "https://images.unsplash.com/photo-1601758066226-67b447c9c841?w=600&q=90&fit=crop", badge: "" },
-  { id: 4, name: "Shampoo Neutro", category: "higiene", price: 34.90, image: "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&q=90&fit=crop", badge: "" },
-  { id: 5, name: "Brinquedo Kong", category: "caes", price: 59.90, image: "https://images.unsplash.com/photo-1576201836106-db1758fd1c97?w=600&q=90&fit=crop", badge: "Promoção" },
-  { id: 6, name: "Arranhador Torre", category: "gatos", price: 129.90, image: "https://images.unsplash.com/photo-1636543459635-4a2b0e8704de?w=600&q=90&fit=crop", badge: "" },
-  { id: 7, name: "Cama Ortopédica", category: "caes", price: 149.90, image: "https://images.unsplash.com/photo-1515444714064-a0b5721ca5f7?w=600&q=90&fit=crop", badge: "Novidade" },
-  { id: 8, name: "Guia Retrátil", category: "acessorios", price: 69.90, image: "https://images.unsplash.com/photo-1719910448244-b87daa191c1a?w=600&q=90&fit=crop", badge: "" },
-  { id: 9, name: "Antipulgas Combo", category: "higiene", price: 89.90, image: "https://images.unsplash.com/photo-1584305281543-1e6e68d2f96e?w=600&q=90&fit=crop", badge: "" },
-  { id: 10, name: "Roupinha Fashion", category: "acessorios", price: 54.90, image: "https://images.unsplash.com/photo-1561948955-570b270e7c36?w=600&q=90&fit=crop", badge: "" },
-  { id: 11, name: "Petisco Natural", category: "caes", price: 24.90, image: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600&q=90&fit=crop", badge: "" },
-  { id: 12, name: "Fonte de Água", category: "gatos", price: 99.90, image: "https://images.unsplash.com/photo-1570696916873-d5e7c0726e2a?w=600&q=90&fit=crop", badge: "" },
+  { id: 1, name: "Ração Premium Cães", category: "caes", price: 89.90, image: "https://images.unsplash.com/photo-1589924691195-41432c84c161?w=600&q=90&fit=crop", badge: "Mais Vendido" },
+  { id: 2, name: "Ração Premium Gatos", category: "gatos", price: 79.90, image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&q=90&fit=crop", badge: "" },
+  { id: 3, name: "Coleira Conforto", category: "acessorios", price: 49.90, image: "https://images.unsplash.com/photo-1552053833-1411d7a8b6a8?w=600&q=90&fit=crop", badge: "" },
+  { id: 4, name: "Shampoo Neutro", category: "higiene", price: 34.90, image: "https://images.unsplash.com/photo-1556228720-1957be83f314?w=600&q=90&fit=crop", badge: "" },
+  { id: 5, name: "Brinquedo Kong", category: "caes", price: 59.90, image: "https://images.unsplash.com/photo-1535930749574-1399327ce78f?w=600&q=90&fit=crop", badge: "Promoção" },
+  { id: 6, name: "Arranhador Torre", category: "gatos", price: 129.90, image: "https://images.unsplash.com/photo-1545249390-6bdfa286032f?w=600&q=90&fit=crop", badge: "" },
+  { id: 7, name: "Cama Ortopédica", category: "caes", price: 149.90, image: "https://images.unsplash.com/photo-1591946614720-885a9ed8a629?w=600&q=90&fit=crop", badge: "Novidade" },
+  { id: 8, name: "Guia Retrátil", category: "acessorios", price: 69.90, image: "https://images.unsplash.com/photo-1551845856-c67fb5084daf?w=600&q=90&fit=crop", badge: "" },
+  { id: 9, name: "Antipulgas Combo", category: "higiene", price: 89.90, image: "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=600&q=90&fit=crop", badge: "" },
+  { id: 10, name: "Roupinha Fashion", category: "acessorios", price: 54.90, image: "https://images.unsplash.com/photo-1576201836106-db1758fd1c97?w=600&q=90&fit=crop", badge: "" },
+  { id: 11, name: "Petisco Natural", category: "caes", price: 24.90, image: "https://images.unsplash.com/photo-1582798358481-d199fb7347bb?w=600&q=90&fit=crop", badge: "" },
+  { id: 12, name: "Fonte de Água", category: "gatos", price: 99.90, image: "https://images.unsplash.com/photo-1583511655826-1e28b84e84b7?w=600&q=90&fit=crop", badge: "" },
 ];
 
 // ============== STATE ==============

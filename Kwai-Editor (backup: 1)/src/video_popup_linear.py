@@ -134,7 +134,7 @@ def _prerender_background(input_path: str, duration: float, output_path: str) ->
         "ffmpeg", "-y",
         "-i", input_path,
         "-t", str(duration),
-        "-vf", f"scale={FINAL_SIZE[0]}:{FINAL_SIZE[1]},setsar=1:1,boxblur={PRERENDER_BG_BOXBLUR}:1",
+        "-vf", f"scale={FINAL_SIZE[0]}:{FINAL_SIZE[1]},boxblur={PRERENDER_BG_BOXBLUR}:1",
         "-c:v", "libx264",
         "-preset", "fast",
         "-crf", "23",
@@ -320,7 +320,7 @@ def _composite_with_ffmpeg(video_path: str, bg_path: str, popup_path: str | None
     if popup_path:
         filter_complex = (
             f"[0:v]scale={new_w}:{new_h_after_scale}:flags=lanczos,"
-            f"crop={VIDEO_W}:{final_h}:0:{y_crop},setsar=1:1[scaled];"
+            f"crop={VIDEO_W}:{final_h}:0:{y_crop}[scaled];"
             f"[1:v][scaled]overlay={VIDEO_X}:{VIDEO_Y}[bg+vid];"
             f"[bg+vid][2:v]overlay={POPUP_X}:{POPUP_Y}[out]"
         )
@@ -337,7 +337,7 @@ def _composite_with_ffmpeg(video_path: str, bg_path: str, popup_path: str | None
     else:
         filter_complex = (
             f"[0:v]scale={new_w}:{new_h_after_scale}:flags=lanczos,"
-            f"crop={VIDEO_W}:{final_h}:0:{y_crop},setsar=1:1[scaled];"
+            f"crop={VIDEO_W}:{final_h}:0:{y_crop}[scaled];"
             f"[1:v][scaled]overlay={VIDEO_X}:{VIDEO_Y}[out]"
         )
         cmd = [
@@ -521,7 +521,7 @@ def criar_video(
             audio_codec="aac",
             threads=4,
             logger=render_logger,
-            ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "faststart", "-crf", str(VIDEO_QUALITY), "-vf", "setsar=1:1"],
+            ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "faststart", "-crf", str(VIDEO_QUALITY)],
         )
 
     # === Fase 1 + 2: cleanup dos caches temporarios ===

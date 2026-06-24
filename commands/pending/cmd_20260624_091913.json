@@ -1,0 +1,7 @@
+{
+  "id": "20260624_091913",
+  "command": "where robloxplayerlauncher 2>nul || where roblox 2>nul || dir \"C:\\Program Files\\Roblox\" 2>nul || dir \"C:\\Program Files (x86)\\Roblox\" 2>nul || ls /Applications/Roblox.app 2>/dev/null || echo ROBLOX_NOT_FOUND",
+  "timeout": 30,
+  "sent_at": "2026-06-24T09:19:19.282078",
+  "sent_by": "glm-agent"
+}

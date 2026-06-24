@@ -20,8 +20,12 @@ from telegram_utils import send_telegram_message, escape_html
 
 load_dotenv()
 
-TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 BASE_URL = os.getenv("TELEGRAM_API_BASE_URL", "https://api.telegram.org")
+
+if not TOKEN:
+    print("AVISO: TELEGRAM_BOT_TOKEN nao configurado. Bot listener nao pode iniciar.")
+    print("Configure o arquivo .env com seu token do Telegram.")
 
 session = requests.Session()
 session.headers.update({"Connection": "keep-alive"})

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 API = os.getenv("TELEGRAM_API_BASE_URL", "https://api.telegram.org")
 _session = requests.Session()
 _session.headers.update({"Connection": "keep-alive"})
@@ -16,6 +16,9 @@ def escape_html(text: str) -> str:
 
 
 def send_telegram_message(chat_id, text, parse_mode=None, reply_markup=None):
+    if not TOKEN:
+        return True  # Modo terminal/local: sem token, não envia mas não falha
+    
     data = {"chat_id": chat_id, "text": text}
     if parse_mode:
         data["parse_mode"] = parse_mode

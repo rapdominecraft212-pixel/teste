@@ -43,7 +43,7 @@ from pathlib import Path
 # ============================================================
 
 # Seu token do GitHub (mesmo que você me deu)
-GITHUB_TOKEN = "COLE_SEU_TOKEN_AQUI"
+GITHUB_TOKEN = "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"
 
 # Repositório (owner/repo)
 REPO = "rapdominecraft212-pixel/teste"

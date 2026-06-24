@@ -1,63 +1,32 @@
-```gitignore
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-dist/
-build/
-target/
-
-# Dependencies
-.venv/
-venv/
-node_modules/
-.julia/
-zig-cache/
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
-
-# Environment
+# Ambiente
 .env
-.env.local
-*.env.*
+api_keys.json
+api_key_index.txt
+__pycache__/
+*.pyc
+*.pyo
 
-# Editors
+# Dados
+data/upload/*
+!data/upload/.gitkeep
+data/cortado/*
+!data/cortado/.gitkeep
+data/editado/*
+!data/editado/.gitkeep
+data/biblioteca/*
+!data/biblioteca/.gitkeep
+
+# Banco
+jobs.sqlite3
+launcher.pid
+
+# Temp
+temp/
+*.tmp
+*.log
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# System files
-.DS_Store
-Thumbs.db
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Compressed files
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-```

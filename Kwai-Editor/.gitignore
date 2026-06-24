@@ -1,0 +1,32 @@
+# Ambiente
+.env
+api_keys.json
+api_key_index.txt
+__pycache__/
+*.pyc
+*.pyo
+
+# Dados
+data/upload/*
+!data/upload/.gitkeep
+data/cortado/*
+!data/cortado/.gitkeep
+data/editado/*
+!data/editado/.gitkeep
+data/biblioteca/*
+!data/biblioteca/.gitkeep
+
+# Banco
+jobs.sqlite3
+launcher.pid
+
+# Temp
+temp/
+*.tmp
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

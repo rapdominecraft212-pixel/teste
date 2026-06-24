@@ -1,0 +1,304 @@
+import os
+import proglog
+from datetime import datetime
+from pathlib import Path
+from typing import Callable
+
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from moviepy import VideoFileClip, ImageClip, CompositeVideoClip, ColorClip, VideoClip
+
+
+FINAL_SIZE = (720, 1274)
+DURATION_FALLBACK = 180
+MAX_DURATION = 180
+FPS = 30
+VIDEO_QUALITY = 18  # CRF: menor = maior qualidade (18 = visualmente sem perdas)
+
+VIDEO_X, VIDEO_Y, VIDEO_W, VIDEO_H = 0, 108, 720, 540
+
+USE_BLURRED_BACKGROUND = True
+BLUR_RADIUS = 30
+BLUR_DOWNSAMPLE_WIDTH = 160
+ENCODER_PRESET = "superfast"
+
+POPUP_X, POPUP_Y, POPUP_W = 100, 647, 519
+PADDING_X, PADDING_Y = 37, 38
+FONT_SIZE = 30
+COR_FUNDO = (255, 255, 255, 255)
+COR_TEXTO = (0, 0, 0, 255)
+
+
+def load_font(size: int) -> ImageFont.FreeTypeFont:
+    candidates = [
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "arial.ttf",
+    ]
+    for candidate in candidates:
+        try:
+            return ImageFont.truetype(candidate, size)
+        except Exception:
+            pass
+    return ImageFont.load_default()
+
+
+def wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
+    lines: list[str] = []
+    for paragraph in text.split("\n"):
+        words = paragraph.split()
+        if not words:
+            lines.append("")
+            continue
+        current = words[0]
+        for word in words[1:]:
+            trial = f"{current} {word}"
+            bbox = font.getbbox(trial)
+            width = bbox[2] - bbox[0]
+            if width <= max_width:
+                current = trial
+            else:
+                lines.append(current)
+                current = word
+        lines.append(current)
+    return lines
+
+
+def build_popup_image(text: str, popup_w: int, padding_x: int, padding_y: int,
+                      font_size: int, cor_fundo: tuple, cor_texto: tuple):
+    font = load_font(font_size)
+    max_text_width = popup_w - (padding_x * 2)
+    lines = wrap_text(text, font, max_text_width)
+
+    line_bbox = font.getbbox("Ag")
+    line_h = (line_bbox[3] - line_bbox[1]) + 8
+    text_h = max(1, len(lines)) * line_h
+    popup_h = text_h + (padding_y * 2)
+
+    img = Image.new("RGBA", (popup_w, popup_h), (0, 0, 0, 0))
+    fundo = ImageDraw.Draw(img)
+    fundo.rounded_rectangle(
+        [12, 0, popup_w - 12, popup_h],
+        radius=12,
+        fill=(255, 255, 255, 255)
+    )
+
+    draw = ImageDraw.Draw(img)
+    y = padding_y
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        line_w = bbox[2] - bbox[0]
+        x = (popup_w - line_w) // 2
+        draw.text((x, y), line, font=font, fill=(0, 0, 0, 255))
+        y += line_h
+
+    bg = Image.new("RGBA", (popup_w, popup_h), (0, 0, 0, 0))
+    bg_draw = ImageDraw.Draw(bg)
+    bg_draw.rounded_rectangle(
+        [12, 0, popup_w - 12, popup_h],
+        radius=12,
+        fill=(255, 255, 255, 255)
+    )
+
+    return img, bg
+
+
+def load_source_clip(path: str):
+    ext = Path(path).suffix.lower()
+    if ext in {".png", ".jpg", ".jpeg", ".webp", ".bmp"}:
+        clip = ImageClip(path).with_duration(DURATION_FALLBACK)
+        return clip, DURATION_FALLBACK, True
+    clip = VideoFileClip(path)
+    return clip, clip.duration, False
+
+
+def make_background(source_clip, duration: float, is_image: bool, input_path: str):
+    if not USE_BLURRED_BACKGROUND:
+        return ColorClip(FINAL_SIZE, color=(0, 0, 0)).with_duration(duration)
+
+    if is_image:
+        pil = Image.open(input_path).convert("RGB").resize(FINAL_SIZE)
+        pil = pil.filter(ImageFilter.GaussianBlur(radius=BLUR_RADIUS))
+        return ImageClip(np.array(pil)).with_duration(duration)
+
+    def blur_frame(frame):
+        pil = Image.fromarray(frame)
+        w, h = pil.size
+        new_w = BLUR_DOWNSAMPLE_WIDTH
+        new_h = max(1, int(h * new_w / w))
+        small = pil.resize((new_w, new_h), Image.Resampling.BILINEAR)
+        scale = new_w / w
+        radius = max(1, int(BLUR_RADIUS * scale))
+        small = small.filter(ImageFilter.GaussianBlur(radius=radius))
+        return np.array(small.resize((w, h), Image.Resampling.BILINEAR))
+
+    bg = source_clip.image_transform(blur_frame)
+    return bg.resized(FINAL_SIZE)
+
+
+def lerp(a: float, b: float, t: float) -> float:
+    return a + (b - a) * t
+
+
+class _RenderProgressLogger(proglog.ProgressBarLogger):
+    def __init__(self, callback):
+        super().__init__()
+        self._on_progress = callback
+        self._total = 0
+        self._last_pct = -1
+
+    def bars_callback(self, bar, attr, value, old_value):
+        if attr == "total":
+            self._total = value
+        if attr == "index":
+            total = self.bars[bar].get("total", self._total)
+            if total:
+                pct = int(value / total * 100)
+                if pct != self._last_pct:
+                    self._last_pct = pct
+                    self._on_progress(pct)
+
+
+def criar_video(
+    input_path: str,
+    output_dir: str = "editado",
+    titulo: str = "Título",
+    subtitulo: str = "Subtítulo",
+    popup_1_in: float = 0.0,
+    popup_1_out: float = 7.0,
+    transition_dur: float = 1.0,
+    popup_fade_in: float = 1.5,
+    text_fade_dur: float = 0.5,
+    test_duration: float | None = None,
+    on_render_progress: Callable | None = None,
+) -> str:
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"Arquivo de entrada não encontrado: {input_path}")
+
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    safe_title = "".join(c if c.isalnum() or c in " _-" else "_" for c in titulo).strip()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_name = f"{safe_title[:40]}_{timestamp}.mp4"
+    output_path = str(Path(output_dir) / output_name)
+
+    source_clip, source_duration, is_image = load_source_clip(input_path)
+    duration = test_duration if test_duration is not None else min(source_duration, MAX_DURATION)
+
+    if is_image:
+        source_clip = source_clip.with_duration(duration)
+    else:
+        source_clip = source_clip.subclipped(0, duration)
+        duration = source_clip.duration
+
+    background = make_background(source_clip, duration, is_image, input_path)
+
+    src_w, src_h = source_clip.w, source_clip.h
+    scale = VIDEO_W / src_w
+    new_w, new_h = int(src_w * scale), int(src_h * scale)
+    main_video = source_clip.resized((new_w, new_h))
+    if new_h > VIDEO_H:
+        y_crop = (new_h - VIDEO_H) // 2
+        main_video = main_video.cropped(y1=y_crop, height=VIDEO_H)
+        new_h = VIDEO_H
+    x_off = VIDEO_X + (VIDEO_W - new_w) // 2
+    y_off = VIDEO_Y + (VIDEO_H - new_h) // 2
+    main_video = main_video.with_position((x_off, y_off))
+
+    popup1_full, popup1_bg = build_popup_image(
+        titulo, POPUP_W, PADDING_X, PADDING_Y, FONT_SIZE, COR_FUNDO, COR_TEXTO
+    )
+    popup2_full, popup2_bg = build_popup_image(
+        subtitulo, POPUP_W, PADDING_X, PADDING_Y, FONT_SIZE, COR_FUNDO, COR_TEXTO
+    )
+    max_popup_h = max(popup1_full.height, popup2_full.height)
+
+    text_fade_start = popup_1_out - text_fade_dur
+    text_appear_start = popup_1_out + transition_dur
+
+    def popup_frame(t: float):
+        canvas = Image.new("RGBA", (POPUP_W, max_popup_h), (0, 0, 0, 0))
+
+        if t < popup_1_in:
+            return np.array(canvas).astype(np.uint8)
+
+        if t < popup_1_in + popup_fade_in:
+            p = (t - popup_1_in) / popup_fade_in
+            alpha = max(0.0, min(1.0, p))
+            canvas.paste(popup1_full, (0, 0), popup1_full)
+            arr = np.array(canvas).astype(np.uint8)
+            arr[..., 3] = (arr[..., 3].astype(np.float32) * alpha).astype(np.uint8)
+            return arr
+
+        if t <= text_fade_start:
+            canvas.paste(popup1_full, (0, 0), popup1_full)
+            return np.array(canvas).astype(np.uint8)
+
+        if t <= popup_1_out:
+            p = (t - text_fade_start) / text_fade_dur
+            blended = Image.blend(popup1_full, popup1_bg, p)
+            canvas.paste(blended, (0, 0), blended)
+            return np.array(canvas).astype(np.uint8)
+
+        if t < popup_1_out + transition_dur:
+            p = (t - popup_1_out) / transition_dur
+            current_h = max(1, int(lerp(popup1_bg.height, popup2_bg.height, p)))
+            img1 = popup1_bg.resize((POPUP_W, current_h), Image.Resampling.LANCZOS)
+            img2 = popup2_bg.resize((POPUP_W, current_h), Image.Resampling.LANCZOS)
+            blended = Image.blend(img1, img2, p)
+            canvas.paste(blended, (0, 0), blended)
+            return np.array(canvas).astype(np.uint8)
+
+        if t < text_appear_start + text_fade_dur:
+            p = (t - text_appear_start) / text_fade_dur
+            blended = Image.blend(popup2_bg, popup2_full, p)
+            canvas.paste(blended, (0, 0), blended)
+            return np.array(canvas).astype(np.uint8)
+
+        canvas.paste(popup2_full, (0, 0), popup2_full)
+        return np.array(canvas).astype(np.uint8)
+
+    popup = VideoClip(frame_function=popup_frame, duration=duration)
+    popup = popup.with_position((POPUP_X, POPUP_Y))
+
+    final = CompositeVideoClip(
+        [background, main_video, popup],
+        size=FINAL_SIZE,
+    ).with_duration(duration)
+
+    render_logger = _RenderProgressLogger(on_render_progress) if on_render_progress else None
+    final.write_videofile(
+        output_path,
+        fps=FPS,
+        codec="libx264",
+        preset=ENCODER_PRESET,
+        audio_codec="aac",
+        threads=4,
+        logger=render_logger,
+        ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "faststart", "-crf", str(VIDEO_QUALITY)],
+    )
+
+    return output_path
+
+
+def main():
+    import sys as _sys
+    upload_dir = Path(__file__).parent / "upload"
+    videos = sorted(upload_dir.glob("*.mp4"))
+    if not videos:
+        print("Nenhum vídeo encontrado em upload/")
+        _sys.exit(1)
+
+    input_path = str(videos[0])
+    output_path = criar_video(
+        input_path=input_path,
+        titulo="Título de Teste",
+        subtitulo="Subtítulo de teste para o vídeo",
+        test_duration=10,
+    )
+    print(f"Concluído: {output_path}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,307 @@
+import sqlite3
+from pathlib import Path
+from datetime import datetime, timezone
+from log_utils import log
+
+DB_PATH = Path("jobs.sqlite3")
+
+
+def utc_now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def get_conn():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    now = utc_now()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS jobs (
+                job_id TEXT PRIMARY KEY,
+                chat_id INTEGER NOT NULL,
+                input_url TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'queued',
+                output_path TEXT,
+                error_message TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_states (
+                chat_id INTEGER PRIMARY KEY,
+                state TEXT NOT NULL DEFAULT 'idle',
+                wait_until_all_ready INTEGER DEFAULT 0,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+        # Migracao: adicionar coluna retry_count
+        try:
+            conn.execute("ALTER TABLE jobs ADD COLUMN retry_count INTEGER DEFAULT 0")
+            log.info("[DB] Coluna 'retry_count' adicionada à tabela jobs")
+        except Exception:
+            pass
+
+        # Migracao: remover colunas legadas (delivered, sent_at)
+        for col in ("delivered", "sent_at"):
+            try:
+                conn.execute(f"ALTER TABLE jobs DROP COLUMN {col}")
+                log.info(f"[DB] Coluna '{col}' removida da tabela jobs")
+            except Exception:
+                pass
+
+        conn.commit()
+
+
+def get_user_state(chat_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT state FROM user_states WHERE chat_id = ?",
+            (chat_id,)
+        ).fetchone()
+        return row["state"] if row else "idle"
+
+
+def set_user_state(chat_id, state):
+    now = utc_now()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_states (chat_id, state, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(chat_id) DO UPDATE SET
+                state = excluded.state,
+                updated_at = excluded.updated_at
+            """,
+            (chat_id, state, now)
+        )
+        conn.commit()
+
+
+def set_wait_until_all_ready(chat_id, value):
+    now = utc_now()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_states (chat_id, state, wait_until_all_ready, updated_at)
+            VALUES (?, 'idle', ?, ?)
+            ON CONFLICT(chat_id) DO UPDATE SET
+                wait_until_all_ready = excluded.wait_until_all_ready,
+                updated_at = excluded.updated_at
+            """,
+            (chat_id, 1 if value else 0, now)
+        )
+        conn.commit()
+
+
+def get_wait_until_all_ready(chat_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT wait_until_all_ready FROM user_states WHERE chat_id = ?",
+            (chat_id,)
+        ).fetchone()
+        return bool(row["wait_until_all_ready"]) if row else False
+
+
+def create_job(job_id, chat_id, input_url):
+    """Cria job ja como 'queued' (worker pode pega-lo imediatamente).
+    Use para casos onde o gate 'Concluido' nao se aplica (e.g. testes, API direta)."""
+    now = utc_now()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO jobs (job_id, chat_id, input_url, status, created_at, updated_at)
+            VALUES (?, ?, ?, 'queued', ?, ?)
+            """,
+            (job_id, chat_id, input_url, now, now)
+        )
+        conn.commit()
+
+
+def create_pending_job(job_id, chat_id, input_url):
+    """Cria job como 'pending' — worker NAO ve jobs pending.
+    Use quando o usuario esta colando links no modo de coleta; o job so
+    vira 'queued' (e portanto visivel ao worker) apos o usuario clicar
+    'Concluido', via flush_pending_jobs(chat_id)."""
+    now = utc_now()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO jobs (job_id, chat_id, input_url, status, created_at, updated_at)
+            VALUES (?, ?, ?, 'pending', ?, ?)
+            """,
+            (job_id, chat_id, input_url, now, now)
+        )
+        conn.commit()
+    log.info(f"[DB] job {job_id[:12]} -> pending (chat={chat_id})")
+
+
+def flush_pending_jobs(chat_id):
+    """Transita todos os jobs 'pending' do chat para 'queued'.
+    Deve ser chamado quando o usuario clica em 'Concluido' no modo de coleta.
+    Retorna o numero de jobs afetados."""
+    now = utc_now()
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE jobs SET status = 'queued', updated_at = ? "
+            "WHERE chat_id = ? AND status = 'pending'",
+            (now, chat_id)
+        )
+        affected = cur.rowcount
+        conn.commit()
+    if affected > 0:
+        log.info(f"[DB] chat {chat_id}: {affected} job(s) pending -> queued (Concluido)")
+    return affected
+
+
+def count_pending(chat_id):
+    """Conta jobs 'pending' do chat (ainda nao liberados para o worker)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) as c FROM jobs WHERE chat_id = ? AND status = 'pending'",
+            (chat_id,)
+        ).fetchone()
+        return row["c"] if row else 0
+
+
+def discard_pending_jobs(chat_id):
+    """Remove (DELETE) todos os jobs 'pending' do chat.
+    Usado quando o usuario clica 'Cancelar' no modo de coleta — descarta
+    os links que ele ainda nao confirmou com 'Concluido'.
+    Retorna o numero de jobs removidos."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM jobs WHERE chat_id = ? AND status = 'pending'",
+            (chat_id,)
+        )
+        affected = cur.rowcount
+        conn.commit()
+    if affected > 0:
+        log.info(f"[DB] chat {chat_id}: {affected} job(s) pending descartados (Cancelar)")
+    return affected
+
+
+def get_job(job_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM jobs WHERE job_id = ?",
+            (job_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_user_jobs(chat_id):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM jobs WHERE chat_id = ? ORDER BY created_at DESC",
+            (chat_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def count_ready(chat_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) as c FROM jobs WHERE chat_id = ? AND status = 'ready'",
+            (chat_id,)
+        ).fetchone()
+        return row["c"] if row else 0
+
+
+def count_processing(chat_id):
+    """Conta jobs visiveis ao usuario como 'em andamento'.
+    Inclui 'pending' (coletando, antes do Concluido) e 'queued' (na fila do worker)
+    e 'processing' (sendo editado agora)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) as c FROM jobs WHERE chat_id = ? AND status IN ('pending', 'queued', 'processing')",
+            (chat_id,)
+        ).fetchone()
+        return row["c"] if row else 0
+
+
+def count_failed(chat_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) as c FROM jobs WHERE chat_id = ? AND status = 'failed'",
+            (chat_id,)
+        ).fetchone()
+        return row["c"] if row else 0
+
+
+def get_next_queued_job():
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM jobs WHERE status = 'queued' ORDER BY chat_id, created_at ASC LIMIT 1"
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def set_job_processing(job_id):
+    now = utc_now()
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE jobs SET status = 'processing', updated_at = ? WHERE job_id = ?",
+            (now, job_id)
+        )
+        conn.commit()
+    log.info(f"[DB] job {job_id[:12]} -> processing")
+
+
+def recover_processing_jobs():
+    now = utc_now()
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE jobs SET retry_count = retry_count + 1, updated_at = ? WHERE status = 'processing'",
+            (now,)
+        )
+        conn.execute(
+            "UPDATE jobs SET status = 'failed', output_path = NULL, "
+            "error_message = 'max_retries_exceeded apos ' || retry_count || ' tentativas', updated_at = ? "
+            "WHERE status = 'processing' AND retry_count >= 3",
+            (now,)
+        )
+        conn.execute(
+            "UPDATE jobs SET status = 'queued', output_path = NULL, "
+            "error_message = 'recuperado_apos_reinicio', updated_at = ? "
+            "WHERE status = 'processing' AND retry_count < 3",
+            (now,)
+        )
+        conn.commit()
+
+
+def set_job_ready(job_id, output_path):
+    now = utc_now()
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE jobs SET status = 'ready', output_path = ?, retry_count = 0, updated_at = ? WHERE job_id = ?",
+            (output_path, now, job_id)
+        )
+        conn.commit()
+    size = Path(output_path).stat().st_size if output_path and Path(output_path).exists() else 0
+    log.info(f"[DB] job {job_id[:12]} -> ready ({size/1024/1024:.1f}MB)")
+
+
+def set_job_failed(job_id, error_message):
+    now = utc_now()
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE jobs SET status = 'failed', error_message = ?, retry_count = 0, updated_at = ? WHERE job_id = ?",
+            (error_message, now, job_id)
+        )
+        conn.commit()
+    log.error(f"[DB] job {job_id[:12]} -> failed: {error_message}")
+
+
+if __name__ == "__main__":
+    init_db()
+    print(f"Banco inicializado em: {DB_PATH.resolve()}")

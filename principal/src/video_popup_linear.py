@@ -1,0 +1,586 @@
+import os
+import proglog
+import subprocess
+import tempfile
+import hashlib
+from datetime import datetime
+from pathlib import Path
+from typing import Callable
+
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from moviepy import VideoFileClip, ImageClip, CompositeVideoClip, ColorClip, VideoClip
+
+
+FINAL_SIZE = (720, 1274)
+DURATION_FALLBACK = 180
+MAX_DURATION = 180
+FPS = 30
+VIDEO_QUALITY = 18  # CRF: menor = maior qualidade (18 = visualmente sem perdas)
+
+VIDEO_X, VIDEO_Y, VIDEO_W, VIDEO_H = 0, 108, 720, 540
+
+USE_BLURRED_BACKGROUND = True
+BLUR_RADIUS = 30
+BLUR_DOWNSAMPLE_WIDTH = 160
+ENCODER_PRESET = "medium"  # era "superfast" — trocado para medium: arquivo menor
+
+# === Fase 1: pre-render do background blur ===
+USE_PRERENDERED_BG = True
+PRERENDER_BG_BOXBLUR = 20
+
+# === Fase 2: pre-render do popup com canal alpha ===
+USE_PRERENDERED_POPUP = True
+POPUP_PRERENDER_CODEC = "qtrle"
+POPUP_PRERENDER_PIXFMT = "argb"
+
+# === Fase 3: composite final via ffmpeg direto ===
+USE_FFMPEG_COMPOSITE = True
+
+POPUP_X, POPUP_Y, POPUP_W = 100, 647, 519
+PADDING_X, PADDING_Y = 37, 38
+FONT_SIZE = 30
+COR_FUNDO = (255, 255, 255, 255)
+COR_TEXTO = (0, 0, 0, 255)
+
+
+def load_font(size: int) -> ImageFont.FreeTypeFont:
+    candidates = [
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "arial.ttf",
+    ]
+    for candidate in candidates:
+        try:
+            return ImageFont.truetype(candidate, size)
+        except Exception:
+            pass
+    return ImageFont.load_default()
+
+
+def wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
+    lines: list[str] = []
+    for paragraph in text.split("\n"):
+        words = paragraph.split()
+        if not words:
+            lines.append("")
+            continue
+        current = words[0]
+        for word in words[1:]:
+            trial = f"{current} {word}"
+            bbox = font.getbbox(trial)
+            width = bbox[2] - bbox[0]
+            if width <= max_width:
+                current = trial
+            else:
+                lines.append(current)
+                current = word
+        lines.append(current)
+    return lines
+
+
+def build_popup_image(text: str, popup_w: int, padding_x: int, padding_y: int,
+                      font_size: int, cor_fundo: tuple, cor_texto: tuple):
+    font = load_font(font_size)
+    max_text_width = popup_w - (padding_x * 2)
+    lines = wrap_text(text, font, max_text_width)
+
+    line_bbox = font.getbbox("Ag")
+    line_h = (line_bbox[3] - line_bbox[1]) + 8
+    text_h = max(1, len(lines)) * line_h
+    popup_h = text_h + (padding_y * 2)
+
+    img = Image.new("RGBA", (popup_w, popup_h), (0, 0, 0, 0))
+    fundo = ImageDraw.Draw(img)
+    fundo.rounded_rectangle(
+        [12, 0, popup_w - 12, popup_h],
+        radius=12,
+        fill=(255, 255, 255, 255)
+    )
+
+    draw = ImageDraw.Draw(img)
+    y = padding_y
+    for line in lines:
+        bbox = draw.textbbox((0, 0), line, font=font)
+        line_w = bbox[2] - bbox[0]
+        x = (popup_w - line_w) // 2
+        draw.text((x, y), line, font=font, fill=(0, 0, 0, 255))
+        y += line_h
+
+    bg = Image.new("RGBA", (popup_w, popup_h), (0, 0, 0, 0))
+    bg_draw = ImageDraw.Draw(bg)
+    bg_draw.rounded_rectangle(
+        [12, 0, popup_w - 12, popup_h],
+        radius=12,
+        fill=(255, 255, 255, 255)
+    )
+
+    return img, bg
+
+
+def load_source_clip(path: str):
+    ext = Path(path).suffix.lower()
+    if ext in {".png", ".jpg", ".jpeg", ".webp", ".bmp"}:
+        clip = ImageClip(path).with_duration(DURATION_FALLBACK)
+        return clip, DURATION_FALLBACK, True
+    clip = VideoFileClip(path)
+    return clip, clip.duration, False
+
+
+def _prerender_background(input_path: str, duration: float, output_path: str) -> str:
+    """Pre-renderiza o background blur UMA UNICA vez com ffmpeg direto (C puro)."""
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", input_path,
+        "-t", str(duration),
+        "-vf", f"scale={FINAL_SIZE[0]}:{FINAL_SIZE[1]},boxblur={PRERENDER_BG_BOXBLUR}:1",
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "23",
+        "-an",
+        output_path,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg prerender bg falhou: {result.stderr[-500:]}")
+    return output_path
+
+
+def make_background(source_clip, duration: float, is_image: bool, input_path: str,
+                    bg_cache_path: str | None = None):
+    """Cria o clip de background.
+    Se USE_PRERENDERED_BG=True e bg_cache_path for passado, usa o video de bg
+    pre-renderizado (rapido). Caso contrario, cai no comportamento original."""
+    if not USE_BLURRED_BACKGROUND:
+        return ColorClip(FINAL_SIZE, color=(0, 0, 0)).with_duration(duration)
+
+    if is_image:
+        pil = Image.open(input_path).convert("RGB").resize(FINAL_SIZE)
+        pil = pil.filter(ImageFilter.GaussianBlur(radius=BLUR_RADIUS))
+        return ImageClip(np.array(pil)).with_duration(duration)
+
+    if USE_PRERENDERED_BG and bg_cache_path and os.path.exists(bg_cache_path):
+        bg_clip = VideoFileClip(bg_cache_path).without_audio()
+        if bg_clip.duration >= duration:
+            return bg_clip.subclipped(0, duration)
+        return bg_clip
+
+    # Fallback: blur frame a frame em Python (comportamento original)
+    def blur_frame(frame):
+        pil = Image.fromarray(frame)
+        w, h = pil.size
+        new_w = BLUR_DOWNSAMPLE_WIDTH
+        new_h = max(1, int(h * new_w / w))
+        small = pil.resize((new_w, new_h), Image.Resampling.BILINEAR)
+        scale = new_w / w
+        radius = max(1, int(BLUR_RADIUS * scale))
+        small = small.filter(ImageFilter.GaussianBlur(radius=radius))
+        return np.array(small.resize((w, h), Image.Resampling.BILINEAR))
+
+    bg = source_clip.image_transform(blur_frame)
+    return bg.resized(FINAL_SIZE)
+
+
+def lerp(a: float, b: float, t: float) -> float:
+    return a + (b - a) * t
+
+
+# === Fase 2: pre-render do popup ===
+
+def _popup_frame_at(t: float, popup1_full, popup1_bg, popup2_full, popup2_bg,
+                    max_popup_h: int, popup_1_in: float, popup_1_out: float,
+                    transition_dur: float, popup_fade_in: float, text_fade_dur: float):
+    """REPLICA EXATA da funcao popup_frame, isolada para pre-render."""
+    canvas = Image.new("RGBA", (POPUP_W, max_popup_h), (0, 0, 0, 0))
+
+    if t < popup_1_in:
+        return np.array(canvas).astype(np.uint8)
+
+    if t < popup_1_in + popup_fade_in:
+        p = (t - popup_1_in) / popup_fade_in
+        alpha = max(0.0, min(1.0, p))
+        canvas.paste(popup1_full, (0, 0), popup1_full)
+        arr = np.array(canvas).astype(np.uint8)
+        arr[..., 3] = (arr[..., 3].astype(np.float32) * alpha).astype(np.uint8)
+        return arr
+
+    text_fade_start = popup_1_out - text_fade_dur
+    if t <= text_fade_start:
+        canvas.paste(popup1_full, (0, 0), popup1_full)
+        return np.array(canvas).astype(np.uint8)
+
+    if t <= popup_1_out:
+        p = (t - text_fade_start) / text_fade_dur
+        blended = Image.blend(popup1_full, popup1_bg, p)
+        canvas.paste(blended, (0, 0), blended)
+        return np.array(canvas).astype(np.uint8)
+
+    if t < popup_1_out + transition_dur:
+        p = (t - popup_1_out) / transition_dur
+        current_h = max(1, int(lerp(popup1_bg.height, popup2_bg.height, p)))
+        img1 = popup1_bg.resize((POPUP_W, current_h), Image.Resampling.LANCZOS)
+        img2 = popup2_bg.resize((POPUP_W, current_h), Image.Resampling.LANCZOS)
+        blended = Image.blend(img1, img2, p)
+        canvas.paste(blended, (0, 0), blended)
+        return np.array(canvas).astype(np.uint8)
+
+    text_appear_start = popup_1_out + transition_dur
+    if t < text_appear_start + text_fade_dur:
+        p = (t - text_appear_start) / text_fade_dur
+        blended = Image.blend(popup2_bg, popup2_full, p)
+        canvas.paste(blended, (0, 0), blended)
+        return np.array(canvas).astype(np.uint8)
+
+    canvas.paste(popup2_full, (0, 0), popup2_full)
+    return np.array(canvas).astype(np.uint8)
+
+
+def _prerender_popup(titulo: str, subtitulo: str, duration: float,
+                     popup_1_in: float, popup_1_out: float,
+                     transition_dur: float, popup_fade_in: float,
+                     text_fade_dur: float, output_path: str) -> tuple[str, int]:
+    """Pre-renderiza o popup como MOV qtrle alpha."""
+    import tempfile
+    import shutil
+    frames_dir = tempfile.mkdtemp(prefix="vpl_popup_frames_")
+
+    try:
+        popup1_full, popup1_bg = build_popup_image(
+            titulo, POPUP_W, PADDING_X, PADDING_Y, FONT_SIZE, COR_FUNDO, COR_TEXTO
+        )
+        popup2_full, popup2_bg = build_popup_image(
+            subtitulo, POPUP_W, PADDING_X, PADDING_Y, FONT_SIZE, COR_FUNDO, COR_TEXTO
+        )
+        max_popup_h = max(popup1_full.height, popup2_full.height)
+
+        n_frames = int(duration * FPS)
+        for i in range(n_frames):
+            t = i / FPS
+            arr = _popup_frame_at(
+                t, popup1_full, popup1_bg, popup2_full, popup2_bg,
+                max_popup_h, popup_1_in, popup_1_out, transition_dur,
+                popup_fade_in, text_fade_dur
+            )
+            Image.fromarray(arr, mode="RGBA").save(
+                Path(frames_dir) / f"frame_{i:05d}.png"
+            )
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-framerate", str(FPS),
+            "-i", str(Path(frames_dir) / "frame_%05d.png"),
+            "-c:v", POPUP_PRERENDER_CODEC,
+            "-pix_fmt", POPUP_PRERENDER_PIXFMT,
+            output_path,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        if result.returncode != 0:
+            raise RuntimeError(f"ffmpeg prerender popup falhou: {result.stderr[-500:]}")
+
+        return output_path, max_popup_h
+    finally:
+        try:
+            shutil.rmtree(frames_dir)
+        except Exception:
+            pass
+
+
+# === Fase 3: composite final via ffmpeg direto ===
+
+def _composite_with_ffmpeg(video_path: str, bg_path: str, popup_path: str | None,
+                            output_path: str, duration: float,
+                            on_render_progress: Callable | None = None) -> str:
+    """Composite final via ffmpeg filter_complex (Fase 3)."""
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0",
+         "-show_entries", "stream=width,height",
+         "-of", "default=noprint_wrappers=1", video_path],
+        capture_output=True, text=True, timeout=30
+    )
+    src_w = src_h = 0
+    for line in probe.stdout.strip().split("\n"):
+        if line.startswith("width="):
+            src_w = int(line.split("=")[1])
+        elif line.startswith("height="):
+            src_h = int(line.split("=")[1])
+
+    if src_w == 0 or src_h == 0:
+        raise RuntimeError(f"nao consegui ler dimensoes de {video_path}")
+
+    scale_factor = VIDEO_W / src_w
+    new_w = int(src_w * scale_factor)
+    new_h_after_scale = int(src_h * scale_factor)
+    y_crop = 0
+    final_h = new_h_after_scale
+    if new_h_after_scale > VIDEO_H:
+        y_crop = (new_h_after_scale - VIDEO_H) // 2
+        final_h = VIDEO_H
+
+    if popup_path:
+        filter_complex = (
+            f"[0:v]scale={new_w}:{new_h_after_scale}:flags=lanczos,"
+            f"crop={VIDEO_W}:{final_h}:0:{y_crop}[scaled];"
+            f"[1:v][scaled]overlay={VIDEO_X}:{VIDEO_Y}[bg+vid];"
+            f"[bg+vid][2:v]overlay={POPUP_X}:{POPUP_Y}[out]"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-i", bg_path,
+            "-i", popup_path,
+            "-t", str(duration),
+            "-filter_complex", filter_complex,
+            "-map", "[out]",
+            "-map", "0:a?",
+        ]
+    else:
+        filter_complex = (
+            f"[0:v]scale={new_w}:{new_h_after_scale}:flags=lanczos,"
+            f"crop={VIDEO_W}:{final_h}:0:{y_crop}[scaled];"
+            f"[1:v][scaled]overlay={VIDEO_X}:{VIDEO_Y}[out]"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-i", bg_path,
+            "-t", str(duration),
+            "-filter_complex", filter_complex,
+            "-map", "[out]",
+            "-map", "0:a?",
+        ]
+
+    cmd += [
+        "-r", str(FPS),
+        "-c:v", "libx264",
+        "-preset", ENCODER_PRESET,
+        "-crf", str(VIDEO_QUALITY),
+        "-pix_fmt", "yuv420p",
+        "-movflags", "faststart",
+        "-c:a", "aac",
+        "-shortest",
+        output_path,
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg composite falhou: {result.stderr[-500:]}")
+
+    return output_path
+
+
+class _RenderProgressLogger(proglog.ProgressBarLogger):
+    def __init__(self, callback):
+        super().__init__()
+        self._on_progress = callback
+        self._total = 0
+        self._last_pct = -1
+
+    def bars_callback(self, bar, attr, value, old_value):
+        if attr == "total":
+            self._total = value
+        if attr == "index":
+            total = self.bars[bar].get("total", self._total)
+            if total:
+                pct = int(value / total * 100)
+                if pct != self._last_pct:
+                    self._last_pct = pct
+                    self._on_progress(pct)
+
+
+def criar_video(
+    input_path: str,
+    output_dir: str = "editado",
+    titulo: str = "Título",
+    subtitulo: str = "Subtítulo",
+    popup_1_in: float = 0.0,
+    popup_1_out: float = 7.0,
+    transition_dur: float = 1.0,
+    popup_fade_in: float = 1.5,
+    text_fade_dur: float = 0.5,
+    test_duration: float | None = None,
+    on_render_progress: Callable | None = None,
+) -> str:
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"Arquivo de entrada não encontrado: {input_path}")
+
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    safe_title = "".join(c if c.isalnum() or c in " _-" else "_" for c in titulo).strip()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_name = f"{safe_title[:40]}_{timestamp}.mp4"
+    output_path = str(Path(output_dir) / output_name)
+
+    source_clip, source_duration, is_image = load_source_clip(input_path)
+    duration = test_duration if test_duration is not None else min(source_duration, MAX_DURATION)
+
+    if is_image:
+        source_clip = source_clip.with_duration(duration)
+    else:
+        source_clip = source_clip.subclipped(0, duration)
+        duration = source_clip.duration
+
+    # === Fase 1: pre-renderizar bg blur (uma unica vez com ffmpeg) ===
+    bg_cache_path = None
+    if USE_PRERENDERED_BG and not is_image:
+        input_hash = hashlib.md5(f"{input_path}_{duration:.2f}".encode()).hexdigest()[:12]
+        bg_cache_path = str(Path(tempfile.gettempdir()) / f"vpl_bg_{input_hash}.mp4")
+        try:
+            _prerender_background(input_path, duration, bg_cache_path)
+        except Exception as e:
+            print(f"WARN: pre-render bg falhou ({e}), usando fallback Python")
+            bg_cache_path = None
+
+    background = make_background(source_clip, duration, is_image, input_path,
+                                  bg_cache_path=bg_cache_path)
+
+    src_w, src_h = source_clip.w, source_clip.h
+    scale = VIDEO_W / src_w
+    new_w, new_h = int(src_w * scale), int(src_h * scale)
+    main_video = source_clip.resized((new_w, new_h))
+    if new_h > VIDEO_H:
+        y_crop = (new_h - VIDEO_H) // 2
+        main_video = main_video.cropped(y1=y_crop, height=VIDEO_H)
+        new_h = VIDEO_H
+    x_off = VIDEO_X + (VIDEO_W - new_w) // 2
+    y_off = VIDEO_Y + (VIDEO_H - new_h) // 2
+    main_video = main_video.with_position((x_off, y_off))
+
+    # === Fase 2: pre-render do popup com canal alpha ===
+    popup_cache_path = None
+    popup_prerendered_ok = False
+    if USE_PRERENDERED_POPUP:
+        popup_hash = hashlib.md5(
+            f"{titulo}|{subtitulo}|{duration:.2f}".encode()
+        ).hexdigest()[:12]
+        popup_cache_path = str(Path(tempfile.gettempdir()) / f"vpl_popup_{popup_hash}.mov")
+        try:
+            _prerender_popup(
+                titulo, subtitulo, duration,
+                popup_1_in, popup_1_out, transition_dur,
+                popup_fade_in, text_fade_dur, popup_cache_path
+            )
+            popup = VideoFileClip(popup_cache_path, has_mask=True)
+            popup = popup.with_position((POPUP_X, POPUP_Y))
+            popup_prerendered_ok = True
+        except Exception as e:
+            print(f"WARN: pre-render popup falhou ({e}), usando fallback Python")
+            popup_prerendered_ok = False
+
+    # Fallback: popup calculado frame a frame em Python (comportamento original)
+    if not popup_prerendered_ok:
+        popup1_full, popup1_bg = build_popup_image(
+            titulo, POPUP_W, PADDING_X, PADDING_Y, FONT_SIZE, COR_FUNDO, COR_TEXTO
+        )
+        popup2_full, popup2_bg = build_popup_image(
+            subtitulo, POPUP_W, PADDING_X, PADDING_Y, FONT_SIZE, COR_FUNDO, COR_TEXTO
+        )
+        max_popup_h = max(popup1_full.height, popup2_full.height)
+
+        def popup_frame(t: float):
+            return _popup_frame_at(
+                t, popup1_full, popup1_bg, popup2_full, popup2_bg,
+                max_popup_h, popup_1_in, popup_1_out, transition_dur,
+                popup_fade_in, text_fade_dur
+            )
+
+        popup = VideoClip(frame_function=popup_frame, duration=duration)
+        popup = popup.with_position((POPUP_X, POPUP_Y))
+
+    # === Fase 3: composite final via ffmpeg direto ===
+    composite_ffmpeg_ok = False
+    if (USE_FFMPEG_COMPOSITE and bg_cache_path and os.path.exists(bg_cache_path)
+            and popup_prerendered_ok and popup_cache_path and os.path.exists(popup_cache_path)):
+        try:
+            _composite_with_ffmpeg(
+                video_path=input_path,
+                bg_path=bg_cache_path,
+                popup_path=popup_cache_path,
+                output_path=output_path,
+                duration=duration,
+                on_render_progress=on_render_progress,
+            )
+            composite_ffmpeg_ok = True
+        except Exception as e:
+            print(f"WARN: composite ffmpeg falhou ({e}), usando fallback MoviePy")
+            composite_ffmpeg_ok = False
+
+    # Fallback: composite via MoviePy (comportamento original das Fases 1+2)
+    if not composite_ffmpeg_ok:
+        final = CompositeVideoClip(
+            [background, main_video, popup],
+            size=FINAL_SIZE,
+        ).with_duration(duration)
+
+        render_logger = _RenderProgressLogger(on_render_progress) if on_render_progress else None
+        final.write_videofile(
+            output_path,
+            fps=FPS,
+            codec="libx264",
+            preset=ENCODER_PRESET,
+            audio_codec="aac",
+            threads=4,
+            logger=render_logger,
+            ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "faststart", "-crf", str(VIDEO_QUALITY)],
+        )
+
+    # === Fase 1 + 2: cleanup dos caches temporarios ===
+    try:
+        if popup is not None:
+            popup.close()
+    except Exception:
+        pass
+    try:
+        if background is not None:
+            background.close()
+    except Exception:
+        pass
+    try:
+        if main_video is not None:
+            main_video.close()
+    except Exception:
+        pass
+    try:
+        if source_clip is not None:
+            source_clip.close()
+    except Exception:
+        pass
+    try:
+        if 'final' in locals() and final is not None:
+            final.close()
+    except Exception:
+        pass
+
+    import time as _time
+    for cache_path in (bg_cache_path, popup_cache_path):
+        if cache_path and os.path.exists(cache_path):
+            for attempt in range(5):
+                try:
+                    os.unlink(cache_path)
+                    break
+                except Exception:
+                    _time.sleep(0.1)
+
+    return output_path
+
+
+def main():
+    import sys as _sys
+    upload_dir = Path(__file__).parent / "upload"
+    videos = sorted(upload_dir.glob("*.mp4"))
+    if not videos:
+        print("Nenhum vídeo encontrado em upload/")
+        _sys.exit(1)
+
+    input_path = str(videos[0])
+    output_path = criar_video(
+        input_path=input_path,
+        titulo="Título de Teste",
+        subtitulo="Subtítulo de teste para o vídeo",
+        test_duration=10,
+    )
+    print(f"Concluído: {output_path}")
+
+
+if __name__ == "__main__":
+    main()

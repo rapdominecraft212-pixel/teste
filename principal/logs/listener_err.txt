@@ -1,0 +1,1 @@
+[07:00:07][editor] [ERROR] Erro no listener: 409 Client Error: Conflict for url: https://api.telegram.org/bot8920069067:AAEIefz0SuXExHOC73NTzamCfcMVqGoGWNQ/getUpdates?timeout=30&allowed_updates=%5B%22message%22%5D

@@ -27,7 +27,7 @@ ENCODER_PRESET = "medium"  # era "superfast" — trocado para medium: arquivo me
 
 # === Fase 1: pre-render do background blur ===
 USE_PRERENDERED_BG = True
-PRERENDER_BG_BOXBLUR = 20
+PRERENDER_BG_SIGMA = 30  # Gaussian blur sigma (gblur) — vidro embaçado suave
 
 # === Fase 2: pre-render do popup com canal alpha ===
 USE_PRERENDERED_POPUP = True
@@ -134,7 +134,7 @@ def _prerender_background(input_path: str, duration: float, output_path: str) ->
         "ffmpeg", "-y",
         "-i", input_path,
         "-t", str(duration),
-        "-vf", f"scale={FINAL_SIZE[0]}:{FINAL_SIZE[1]},setsar=1:1,boxblur={PRERENDER_BG_BOXBLUR}:1",
+        "-vf", f"scale={FINAL_SIZE[0]}:{FINAL_SIZE[1]}:force_original_aspect_ratio=increase,setsar=1:1,gblur=sigma={PRERENDER_BG_SIGMA},crop={FINAL_SIZE[0]}:{FINAL_SIZE[1]}",
         "-c:v", "libx264",
         "-preset", "fast",
         "-crf", "23",

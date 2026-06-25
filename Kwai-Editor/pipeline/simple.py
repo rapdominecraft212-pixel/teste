@@ -1,10 +1,12 @@
 import os
 import sys
 import shutil
+import asyncio
 import time as time_module
 from pathlib import Path
-from Playwright import qwen_capa, qwen_titulo
+from Playwright import qwen_capa, qwen_titulo, qwen_linha
 from Playwright.qwen_reply import QwenReply
+from Playwright.qwen_reply_async import QwenReplyAsync
 from src import colocar_linha
 import src.cortar_video as cortar_video
 import src.video_popup_linear as video_popup_linear
@@ -22,12 +24,67 @@ TIMINGS_PADRAO = {
 }
 
 
-def preparar_video(job_id: str, video_path: str, chat_id: int,
-                   parallel: bool = True) -> dict:
+# === Grid helpers (extraidos de _exec_linha_ask para reuso) ===
+
+def _preparar_grid(video_path):
+    """Extrai frame do meio do video e cria imagem grid com linhas numeradas.
+    Retorna (grid_path, cell_h, mid_frame_path).
     """
-    Cria 1 browser + 3 abas. Roda capa/titulo/linha SEQUENCIALMENTE
-    (Playwright sync exige mesma thread), usando 1 aba por tarefa.
-    Perfil original chrome_profile — sem clones, Qwen aceita upload.
+    from src.grid_utils import criar_grid_imagem
+    import tempfile
+    from PIL import Image
+    from moviepy import VideoFileClip
+
+    with VideoFileClip(video_path) as clip:
+        mid_frame = clip.duration / 2
+        frame_np = clip.get_frame(mid_frame)
+        frame = Image.fromarray(frame_np)
+
+    tmp_dir = Path(tempfile.gettempdir())
+    uid = os.path.basename(video_path).replace(".", "_")
+    mid_frame_path = str(tmp_dir / f"frame_linha_{uid}.jpg")
+    grid_path = str(tmp_dir / f"grid_linha_{uid}.jpg")
+    frame.save(mid_frame_path, quality=95)
+    _, _, cell_h = criar_grid_imagem(mid_frame_path, grid_path)
+    return grid_path, cell_h, mid_frame_path
+
+
+def _limpar_grid_temp(grid_info):
+    """Remove arquivos temporarios criados por _preparar_grid."""
+    grid_path, cell_h, mid_frame_path = grid_info
+    for p in [mid_frame_path, grid_path]:
+        if p:
+            try:
+                os.remove(p)
+            except:
+                pass
+
+
+# === Async: pergunta de linha ===
+
+async def _perguntar_linha_async(qr, page, grid_path, cell_h, timeout=180):
+    """Envia o grid para o Qwen e parseia a resposta (Linha_inicial / Linha_final).
+    Retorna (y_start, y_end).
+    """
+    await qr.ask_on_page(page, qwen_linha.PROMPT_LINHA, arquivo=grid_path, timeout=timeout)
+    texto = await QwenReplyAsync._ultima_resposta_page(page)
+
+    row_start, row_end = qwen_linha._extrair_linhas(texto)
+    y_start = int((row_start - 1) * cell_h)
+    y_end = int(row_end * cell_h)
+    return y_start, y_end
+
+
+# === Preparar video — versao async (nucleo paralelo) ===
+
+async def preparar_video_async(job_id: str, video_path: str, chat_id: int,
+                                parallel: bool = True) -> dict:
+    """
+    Versao async: 1 Chrome + 3 abas, chamadas ao Qwen em PARALELO
+    via asyncio.gather. Usa Playwright async_api.
+
+    Se parallel=True: capa, titulo e linha rodam simultaneamente.
+    Se parallel=False: roda sequencialmente (fallback/debug).
     """
     video_name = Path(video_path).name
     video_size = os.path.getsize(video_path)
@@ -35,19 +92,32 @@ def preparar_video(job_id: str, video_path: str, chat_id: int,
     texto_capa = texto_titulo = None
     y1 = y2 = None
 
-    qr = QwenReply(headless=True)
-    try:
-        qr.abrir_context()
-        page_capa = qr.new_page()
-        page_titulo = qr.new_page()
-        page_linha = qr.new_page()
+    # Prepara grid da linha ANTES do gather (sync, rapido ~1s)
+    grid_info = _preparar_grid(video_path)
+    grid_path, cell_h, mid_frame_path = grid_info
 
-        log.info(f"[prep {job_id[:12]}] 1 Chrome + 3 abas (sequencial, Playwright sync)")
-        texto_capa = qr.ask_on_page(page_capa, qwen_capa.PROMPT_CAPA, arquivo=video_path, timeout=300)
-        texto_titulo = qr.ask_on_page(page_titulo, qwen_titulo.PROMPT_TITULO, arquivo=video_path, timeout=300)
-        y1, y2 = _exec_linha_ask(qr, page_linha, video_path)
+    qr = QwenReplyAsync(headless=True)
+    try:
+        await qr.abrir_context()
+        page_capa = await qr.new_page()
+        page_titulo = await qr.new_page()
+        page_linha = await qr.new_page()
+
+        if parallel:
+            log.info(f"[prep {job_id[:12]}] 1 Chrome + 3 abas (PARALELO, Playwright async)")
+            texto_capa, texto_titulo, (y1, y2) = await asyncio.gather(
+                qr.ask_on_page(page_capa, qwen_capa.PROMPT_CAPA, arquivo=video_path, timeout=300),
+                qr.ask_on_page(page_titulo, qwen_titulo.PROMPT_TITULO, arquivo=video_path, timeout=300),
+                _perguntar_linha_async(qr, page_linha, grid_path, cell_h, timeout=180),
+            )
+        else:
+            log.info(f"[prep {job_id[:12]}] 1 Chrome + 3 abas (sequencial, Playwright async)")
+            texto_capa = await qr.ask_on_page(page_capa, qwen_capa.PROMPT_CAPA, arquivo=video_path, timeout=300)
+            texto_titulo = await qr.ask_on_page(page_titulo, qwen_titulo.PROMPT_TITULO, arquivo=video_path, timeout=300)
+            y1, y2 = await _perguntar_linha_async(qr, page_linha, grid_path, cell_h, timeout=180)
     finally:
-        qr.close()
+        await qr.close()
+        _limpar_grid_temp(grid_info)
 
     log.info(f"[prep {job_id[:12]}] OK — capa=\"{texto_capa}\" corte_y={y1}-{y2}")
 
@@ -65,9 +135,27 @@ def preparar_video(job_id: str, video_path: str, chat_id: int,
     return prep_data
 
 
+# === Preparar video — wrapper sync (interface compativel) ===
+
+def preparar_video(job_id: str, video_path: str, chat_id: int,
+                   parallel: bool = True) -> dict:
+    """
+    Wrapper sync — mesma interface de sempre.
+    Por dentro, roda async com Playwright async_api para paralelizar
+    as 3 chamadas ao Qwen.
+
+    Chamadas existentes (worker.py, main) nao precisam mudar nada:
+        prep_data = preparar_video(job_id, path, chat_id)
+    """
+    return asyncio.run(preparar_video_async(job_id, video_path, chat_id, parallel=parallel))
+
+
+# === Legado: versao sync pura (backup / debug) ===
+
 def _exec_linha_ask(qr, page, video_path):
-    from Playwright import qwen_linha
-    from Playwright.qwen_reply import QwenReply
+    """Versao sync legada — mantida para compatibilidade."""
+    from Playwright import qwen_linha as _ql
+    from Playwright.qwen_reply import QwenReply as _QR
     from src.grid_utils import criar_grid_imagem
     import tempfile
     from PIL import Image
@@ -89,8 +177,8 @@ def _exec_linha_ask(qr, page, video_path):
         frame.save(mid_frame_path, quality=95)
         _, _, cell_h = criar_grid_imagem(mid_frame_path, grid_path)
 
-        qr.ask_on_page(page, qwen_linha.PROMPT_LINHA, arquivo=grid_path, timeout=180)
-        texto = QwenReply._ultima_resposta_page(page)
+        qr.ask_on_page(page, _ql.PROMPT_LINHA, arquivo=grid_path, timeout=180)
+        texto = _QR._ultima_resposta_page(page)
 
         import re
         match = re.search(r"Linha_inicial\s*=\s*(\d+)[\s\S]*?Linha_final\s*=\s*(\d+)", texto.strip(), re.IGNORECASE)
@@ -109,6 +197,8 @@ def _exec_linha_ask(qr, page, video_path):
                 except:
                     pass
 
+
+# === Renderizar video (nao muda) ===
 
 def renderizar_video(prep_data: dict,
                      timings: dict | None = None,
@@ -170,6 +260,8 @@ def renderizar_video(prep_data: dict,
 
     return final_path
 
+
+# === Pipeline principal (nao muda) ===
 
 def processar_video(video_path: str, chat_id: int, timings: dict | None = None,
                     on_render_progress=None, parallel=True,

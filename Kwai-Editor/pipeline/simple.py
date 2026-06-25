@@ -69,7 +69,7 @@ async def _ask_on_page_log(qr, page, prompt, nome, arquivo=None, timeout=300):
     t0 = time_module.time()
     log.info(f"  [{nome}] Enviando pergunta{' + arquivo' if arquivo else ''}...")
     try:
-        resultado = await qr.ask_on_page(page, prompt, arquivo=arquivo, timeout=timeout)
+        resultado = await qr.ask_on_page(page, prompt, arquivo=arquivo, timeout=timeout, tag=nome)
         dt = time_module.time() - t0
         preview = resultado[:50].replace('\n', ' ') if resultado else '(vazio)'
         log.info(f"  [{nome}] OK em {dt:.0f}s — {preview}")
@@ -85,7 +85,7 @@ async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=300):
     t0 = time_module.time()
     log.info(f"  [linha] Enviando pergunta + imagem grid...")
     try:
-        await qr.ask_on_page(page, qwen_linha.PROMPT_LINHA, arquivo=grid_path, timeout=timeout)
+        await qr.ask_on_page(page, qwen_linha.PROMPT_LINHA, arquivo=grid_path, timeout=timeout, tag='linha')
         texto = await QwenReplyAsync._ultima_resposta_page(page)
 
         row_start, row_end = qwen_linha._extrair_linhas(texto)
@@ -124,9 +124,9 @@ async def preparar_video_async(job_id: str, video_path: str, chat_id: int,
     qr = QwenReplyAsync(headless=True)
     try:
         await qr.abrir_context()
-        page_capa = await qr.new_page()
-        page_titulo = await qr.new_page()
-        page_linha = await qr.new_page()
+        page_capa = await qr.new_page(tag='capa')
+        page_titulo = await qr.new_page(tag='titulo')
+        page_linha = await qr.new_page(tag='linha')
 
         if parallel:
             log.info(f"[prep {job_id[:12]}] 1 Chrome + 3 abas PARALELO — enviando capa + titulo + linha...")

@@ -79,12 +79,14 @@ class QwenReplyAsync:
             pathlib.Path(PASTA / "_snapshot_header.html").write_text(html, encoding="utf-8")
         await self._ativar_temp(self._page)
 
-    async def new_page(self):
-        """Cria uma nova aba no mesmo context e navega ate o Qwen."""
+    async def new_page(self, tag=None):
+        """Cria uma nova aba no mesmo context e navega ate o Qwen.
+        tag: identificador para o log (ex: 'capa', 'titulo', 'linha').
+        """
         if self._ctx is None:
             await self.abrir_context()
         page = await self._ctx.new_page()
-        tag = _page_tag(page)
+        tag = tag or _page_tag(page)
         print(f"    [{tag}] Navegando ate chat.qwen.ai...", flush=True)
         await page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=120000)
         await page.wait_for_selector("textarea", timeout=120000)
@@ -95,11 +97,13 @@ class QwenReplyAsync:
         print(f"    [{tag}] Aba pronta", flush=True)
         return page
 
-    async def ask_on_page(self, page, prompt, arquivo=None, timeout=180):
-        """Envia prompt numa aba especifica. Retorna o texto da resposta."""
+    async def ask_on_page(self, page, prompt, arquivo=None, timeout=180, tag=None):
+        """Envia prompt numa aba especifica. Retorna o texto da resposta.
+        tag: identificador para o log (ex: 'capa', 'titulo', 'linha').
+        """
         if page is None:
             page = self._page
-        tag = _page_tag(page)
+        tag = tag or _page_tag(page)
         try:
             if arquivo:
                 await self._upload_page(page, arquivo, tag=tag)

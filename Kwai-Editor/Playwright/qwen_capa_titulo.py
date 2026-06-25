@@ -73,17 +73,7 @@ PROMPT_CAPA_TITULO = (
     "Sua resposta deve conter EXATAMENTE este formato e nada mais:\n\n"
 
     "Capa(\"texto da capa aqui\")\n"
-    "Titulo(\"texto do titulo aqui\")\n\n"
-
-    "Exemplos:\n"
-    "Capa(\"O segredo da acerola\")\n"
-    "Titulo(\"A fruta que esconde algo que todas as mulheres amam\")\n\n"
-
-    "Capa(\"Voce esta fazendo errado\")\n"
-    "Titulo(\"O erro que 90% dos criadores cometem sem perceber\")\n\n"
-
-    "Capa(\"Isso mudou tudo\")\n"
-    "Titulo(\"Testei 47 ganchos e so 3 realmente funcionaram\")\n"
+    "Titulo(\"texto do titulo aqui\")\n"
 )
 
 

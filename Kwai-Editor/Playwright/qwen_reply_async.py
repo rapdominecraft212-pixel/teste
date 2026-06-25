@@ -156,7 +156,8 @@ class QwenReplyAsync:
                     if (items.length > 0) items[0].click();
                 }
             """)
-        await fc.value.set_files(str(caminho))
+        file_chooser = await fc.value
+        await file_chooser.set_files(str(caminho))
         try:
             await page.wait_for_selector(".fileitem-btn", timeout=15000)
             await page.wait_for_function("() => !document.querySelector('.fileitem-btn')", timeout=60000)

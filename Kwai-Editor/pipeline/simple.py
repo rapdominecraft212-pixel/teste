@@ -60,19 +60,44 @@ def _limpar_grid_temp(grid_info):
                 pass
 
 
-# === Async: pergunta de linha ===
+# === Async: wrappers com logging detalhado por aba ===
 
-async def _perguntar_linha_async(qr, page, grid_path, cell_h, timeout=180):
-    """Envia o grid para o Qwen e parseia a resposta (Linha_inicial / Linha_final).
-    Retorna (y_start, y_end).
+async def _ask_on_page_log(qr, page, prompt, nome, arquivo=None, timeout=300):
+    """Wrapper de ask_on_page com logging detalhado por aba.
+    Loga: envio, inicio de geracao, conclusao, tempo total.
     """
-    await qr.ask_on_page(page, qwen_linha.PROMPT_LINHA, arquivo=grid_path, timeout=timeout)
-    texto = await QwenReplyAsync._ultima_resposta_page(page)
+    t0 = time_module.time()
+    log.info(f"  [{nome}] Enviando pergunta{' + arquivo' if arquivo else ''}...")
+    try:
+        resultado = await qr.ask_on_page(page, prompt, arquivo=arquivo, timeout=timeout)
+        dt = time_module.time() - t0
+        preview = resultado[:50].replace('\n', ' ') if resultado else '(vazio)'
+        log.info(f"  [{nome}] OK em {dt:.0f}s — {preview}")
+        return resultado
+    except Exception as e:
+        dt = time_module.time() - t0
+        log.error(f"  [{nome}] FALHOU em {dt:.0f}s — {e}")
+        raise
 
-    row_start, row_end = qwen_linha._extrair_linhas(texto)
-    y_start = int((row_start - 1) * cell_h)
-    y_end = int(row_end * cell_h)
-    return y_start, y_end
+
+async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=300):
+    """Versao com logging de _perguntar_linha_async."""
+    t0 = time_module.time()
+    log.info(f"  [linha] Enviando pergunta + imagem grid...")
+    try:
+        await qr.ask_on_page(page, qwen_linha.PROMPT_LINHA, arquivo=grid_path, timeout=timeout)
+        texto = await QwenReplyAsync._ultima_resposta_page(page)
+
+        row_start, row_end = qwen_linha._extrair_linhas(texto)
+        y_start = int((row_start - 1) * cell_h)
+        y_end = int(row_end * cell_h)
+        dt = time_module.time() - t0
+        log.info(f"  [linha] OK em {dt:.0f}s — Linha_inicial={row_start} Linha_final={row_end} (y={y_start}-{y_end})")
+        return y_start, y_end
+    except Exception as e:
+        dt = time_module.time() - t0
+        log.error(f"  [linha] FALHOU em {dt:.0f}s — {e}")
+        raise
 
 
 # === Preparar video — versao async (nucleo paralelo) ===
@@ -104,17 +129,17 @@ async def preparar_video_async(job_id: str, video_path: str, chat_id: int,
         page_linha = await qr.new_page()
 
         if parallel:
-            log.info(f"[prep {job_id[:12]}] 1 Chrome + 3 abas (PARALELO, Playwright async)")
+            log.info(f"[prep {job_id[:12]}] 1 Chrome + 3 abas PARALELO — enviando capa + titulo + linha...")
             texto_capa, texto_titulo, (y1, y2) = await asyncio.gather(
-                qr.ask_on_page(page_capa, qwen_capa.PROMPT_CAPA, arquivo=video_path, timeout=300),
-                qr.ask_on_page(page_titulo, qwen_titulo.PROMPT_TITULO, arquivo=video_path, timeout=300),
-                _perguntar_linha_async(qr, page_linha, grid_path, cell_h, timeout=180),
+                _ask_on_page_log(qr, page_capa, qwen_capa.PROMPT_CAPA, 'capa', arquivo=video_path, timeout=300),
+                _ask_on_page_log(qr, page_titulo, qwen_titulo.PROMPT_TITULO, 'titulo', arquivo=video_path, timeout=300),
+                _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=300),
             )
         else:
-            log.info(f"[prep {job_id[:12]}] 1 Chrome + 3 abas (sequencial, Playwright async)")
-            texto_capa = await qr.ask_on_page(page_capa, qwen_capa.PROMPT_CAPA, arquivo=video_path, timeout=300)
-            texto_titulo = await qr.ask_on_page(page_titulo, qwen_titulo.PROMPT_TITULO, arquivo=video_path, timeout=300)
-            y1, y2 = await _perguntar_linha_async(qr, page_linha, grid_path, cell_h, timeout=180)
+            log.info(f"[prep {job_id[:12]}] 1 Chrome + 3 abas SEQUENCIAL")
+            texto_capa = await _ask_on_page_log(qr, page_capa, qwen_capa.PROMPT_CAPA, 'capa', arquivo=video_path, timeout=300)
+            texto_titulo = await _ask_on_page_log(qr, page_titulo, qwen_titulo.PROMPT_TITULO, 'titulo', arquivo=video_path, timeout=300)
+            y1, y2 = await _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=300)
     finally:
         await qr.close()
         _limpar_grid_temp(grid_info)

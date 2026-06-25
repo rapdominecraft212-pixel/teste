@@ -161,12 +161,75 @@ class QwenReply:
             page.wait_for_timeout(20000)
 
     @staticmethod
+    def _checar_erro_qwen(page):
+        """Verifica se o Qwen mostrou uma mensagem de erro ou rate limit na página."""
+        error_indicators = [
+            ".error-message",
+            ".rate-limit",
+            "[class*='error']",
+            "[class*='rate-limit']",
+            "[class*='limit']",
+        ]
+        for sel in error_indicators:
+            try:
+                el = page.query_selector(sel)
+                if el and el.is_visible():
+                    text = el.inner_text().strip()
+                    if text:
+                        return text
+            except:
+                pass
+        return None
+
+    @staticmethod
     def _enviar_page(page, prompt, timeout):
         page.locator("textarea").fill(prompt)
         page.locator(".send-button").click()
-        page.wait_for_selector(".stop-button", timeout=timeout * 1000)
-        page.wait_for_function("() => !document.querySelector('.stop-button')", timeout=timeout * 1000)
-        page.wait_for_timeout(2000)
+
+        # Espera o Qwen começar a gerar (stop-button aparece)
+        try:
+            page.wait_for_selector(".stop-button", timeout=min(timeout * 1000, 30000))
+        except PlaywrightTimeout:
+            # Qwen não começou a gerar — verificar erros
+            erro = QwenReply._checar_erro_qwen(page)
+            if erro:
+                raise RuntimeError(f"Qwen erro na página: {erro}")
+            # Pode ser que o botão send não funcionou — tentar novamente
+            try:
+                page.locator(".send-button").click()
+                page.wait_for_selector(".stop-button", timeout=15000)
+            except:
+                raise RuntimeError("Qwen não começou a gerar após enviar o prompt. Possível rate limit ou erro de sessão.")
+
+        # Espera o Qwen terminar de gerar (stop-button desaparece)
+        # Usa polling com checagem de erros a cada 30s
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                page.wait_for_function(
+                    "() => !document.querySelector('.stop-button')",
+                    timeout=min(30000, int((deadline - time.time()) * 1000))
+                )
+                # stop-button desapareceu — Qwen terminou
+                page.wait_for_timeout(2000)
+                return
+            except PlaywrightTimeout:
+                # Ainda gerando — checar se há erro
+                erro = QwenReply._checar_erro_qwen(page)
+                if erro:
+                    raise RuntimeError(f"Qwen erro durante geração: {erro}")
+                # Checar se o stop-button ainda existe (ainda gerando)
+                still_generating = page.evaluate("!!document.querySelector('.stop-button')")
+                if not still_generating:
+                    page.wait_for_timeout(2000)
+                    return
+                # Continuar esperando
+
+        # Timeout total excedido
+        erro = QwenReply._checar_erro_qwen(page)
+        if erro:
+            raise RuntimeError(f"Qwen timeout + erro: {erro}")
+        raise RuntimeError(f"Qwen não terminou de gerar em {timeout}s. Possível rate limit.")
 
     @staticmethod
     def _ultima_resposta_page(page):

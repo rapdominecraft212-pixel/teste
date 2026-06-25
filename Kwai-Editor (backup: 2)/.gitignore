@@ -1,5 +1,4 @@
 # Ambiente
-.env
 api_keys.json
 api_key_index.txt
 __pycache__/

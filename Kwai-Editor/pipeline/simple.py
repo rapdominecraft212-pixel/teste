@@ -5,6 +5,7 @@ import asyncio
 import time as time_module
 from pathlib import Path
 from Playwright import qwen_capa, qwen_titulo, qwen_linha
+from Playwright import qwen_capa_titulo
 from Playwright.qwen_reply import QwenReply
 from Playwright.qwen_reply_async import QwenReplyAsync
 from src import colocar_linha
@@ -62,21 +63,22 @@ def _limpar_grid_temp(grid_info):
 
 # === Async: wrappers com logging detalhado por aba ===
 
-async def _ask_on_page_log(qr, page, prompt, nome, arquivo=None, timeout=300):
-    """Wrapper de ask_on_page com logging detalhado por aba.
-    Loga: envio, inicio de geracao, conclusao, tempo total.
-    """
+async def _ask_capa_titulo_log(qr, page, video_path, timeout=300):
+    """Envia o prompt unificado de capa+titulo e extrai os dois textos."""
     t0 = time_module.time()
-    log.info(f"  [{nome}] Enviando pergunta{' + arquivo' if arquivo else ''}...")
+    log.info(f"  [capa+titulo] Enviando pergunta unificada + video...")
     try:
-        resultado = await qr.ask_on_page(page, prompt, arquivo=arquivo, timeout=timeout, tag=nome)
+        resultado = await qr.ask_on_page(
+            page, qwen_capa_titulo.PROMPT_CAPA_TITULO,
+            arquivo=video_path, timeout=timeout, tag='capa+titulo'
+        )
+        texto_capa, texto_titulo = qwen_capa_titulo._extrair_capa_titulo(resultado)
         dt = time_module.time() - t0
-        preview = resultado[:50].replace('\n', ' ') if resultado else '(vazio)'
-        log.info(f"  [{nome}] OK em {dt:.0f}s — {preview}")
-        return resultado
+        log.info(f"  [capa+titulo] OK em {dt:.0f}s — Capa=\"{texto_capa}\" Titulo=\"{texto_titulo}\"")
+        return texto_capa, texto_titulo
     except Exception as e:
         dt = time_module.time() - t0
-        log.error(f"  [{nome}] FALHOU em {dt:.0f}s — {e}")
+        log.error(f"  [capa+titulo] FALHOU em {dt:.0f}s — {e}")
         raise
 
 
@@ -124,21 +126,18 @@ async def preparar_video_async(job_id: str, video_path: str, chat_id: int,
     qr = QwenReplyAsync(headless=True)
     try:
         await qr.abrir_context()
-        page_capa = await qr.new_page(tag='capa')
-        page_titulo = await qr.new_page(tag='titulo')
+        page_capa_titulo = await qr.new_page(tag='capa+titulo')
         page_linha = await qr.new_page(tag='linha')
 
         if parallel:
-            log.info(f"[prep {job_id[:12]}] 1 Chrome + 3 abas PARALELO — enviando capa + titulo + linha...")
-            texto_capa, texto_titulo, (y1, y2) = await asyncio.gather(
-                _ask_on_page_log(qr, page_capa, qwen_capa.PROMPT_CAPA, 'capa', arquivo=video_path, timeout=300),
-                _ask_on_page_log(qr, page_titulo, qwen_titulo.PROMPT_TITULO, 'titulo', arquivo=video_path, timeout=300),
+            log.info(f"[prep {job_id[:12]}] 1 Chrome + 2 abas PARALELO — capa+titulo + linha...")
+            (texto_capa, texto_titulo), (y1, y2) = await asyncio.gather(
+                _ask_capa_titulo_log(qr, page_capa_titulo, video_path, timeout=300),
                 _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=300),
             )
         else:
-            log.info(f"[prep {job_id[:12]}] 1 Chrome + 3 abas SEQUENCIAL")
-            texto_capa = await _ask_on_page_log(qr, page_capa, qwen_capa.PROMPT_CAPA, 'capa', arquivo=video_path, timeout=300)
-            texto_titulo = await _ask_on_page_log(qr, page_titulo, qwen_titulo.PROMPT_TITULO, 'titulo', arquivo=video_path, timeout=300)
+            log.info(f"[prep {job_id[:12]}] 1 Chrome + 2 abas SEQUENCIAL")
+            texto_capa, texto_titulo = await _ask_capa_titulo_log(qr, page_capa_titulo, video_path, timeout=300)
             y1, y2 = await _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=300)
     finally:
         await qr.close()

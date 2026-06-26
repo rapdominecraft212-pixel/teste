@@ -258,11 +258,13 @@ def count_ready(chat_id):
 
 def count_processing(chat_id):
     """Conta jobs visiveis ao usuario como 'em andamento'.
-    Inclui 'pending' (coletando, antes do Concluido) e 'queued' (na fila do worker)
-    e 'processing' (sendo editado agora)."""
+    Inclui todos os estados ativos: pending, queued, processing (legado),
+    preparing (Qwen rodando), ready_to_render (aguardando render),
+    rendering (render em andamento)."""
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT COUNT(*) as c FROM jobs WHERE chat_id = ? AND status IN ('pending', 'queued', 'processing')",
+            "SELECT COUNT(*) as c FROM jobs WHERE chat_id = ? AND status IN "
+            "('pending', 'queued', 'processing', 'preparing', 'ready_to_render', 'rendering')",
             (chat_id,)
         ).fetchone()
         return row["c"] if row else 0

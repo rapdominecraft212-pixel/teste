@@ -87,8 +87,8 @@ async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=300, t
     t0 = time_module.time()
     log.info(f"  [linha] Enviando pergunta + imagem grid...")
     try:
-        await qr.ask_on_page(page, qwen_linha.PROMPT_LINHA, arquivo=grid_path, timeout=timeout, tag='linha')
-        texto = await QwenReplyAsync._ultima_resposta_page(page)
+        # ask_on_page ja retorna o texto extraido (com retry interno)
+        texto = await qr.ask_on_page(page, qwen_linha.PROMPT_LINHA, arquivo=grid_path, timeout=timeout, tag='linha')
 
         row_start, row_end = qwen_linha._extrair_linhas(texto, total_linhas=total_linhas)
         y_start = int((row_start - 1) * cell_h)

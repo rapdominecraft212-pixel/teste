@@ -108,12 +108,7 @@ class QwenReplyAsync:
             if arquivo:
                 await self._upload_page(page, arquivo, tag=tag)
             await self._enviar_page(page, prompt, timeout, tag=tag)
-            resultado = await self._ultima_resposta_page(page)
-            if resultado:
-                preview = resultado[:60].replace('\n', ' ')
-                print(f"    [{tag}] Resposta extraida ({len(resultado)} chars): {preview}", flush=True)
-            else:
-                print(f"    [{tag}] ATENCAO: resposta vazia — Qwen pode nao ter gerado texto", flush=True)
+            resultado = await self._esperar_e_extrair_resposta(page, tag=tag)
             return resultado
         except:
             raise
@@ -348,6 +343,31 @@ class QwenReplyAsync:
         else:
             print(f"    [{tag}] Geracao FALHOU: timeout de {timeout}s — stop-button sumiu mas resposta nao foi detectada", flush=True)
             raise RuntimeError(f"Qwen timeout {timeout}s — stop-button sumiu mas sem resposta. Possivel bug no seletor CSS.")
+
+    @staticmethod
+    async def _esperar_e_extrair_resposta(page, tag="aba", max_tentativas=5):
+        """Espera o conteudo da resposta aparecer no DOM e extrai o texto.
+        
+        O stop-button sumir nao garante que o texto ja esta renderizado.
+        Esta funcao faz polling com retries para garantir que pegamos
+        o texto completo, mesmo que o DOM demore para atualizar.
+        """
+        import asyncio as _asyncio
+        
+        for tentativa in range(1, max_tentativas + 1):
+            texto = await QwenReplyAsync._ultima_resposta_page(page)
+            if texto and texto.strip():
+                preview = texto[:60].replace('\n', ' ')
+                print(f"    [{tag}] Resposta extraida na tentativa {tentativa} ({len(texto)} chars): {preview}", flush=True)
+                return texto
+            
+            if tentativa < max_tentativas:
+                espera = tentativa * 2  # 2s, 4s, 6s, 8s...
+                print(f"    [{tag}] Resposta vazia na tentativa {tentativa}, esperando {espera}s para o DOM atualizar...", flush=True)
+                await _asyncio.sleep(espera)
+        
+        print(f"    [{tag}] ATENCAO: resposta vazia apos {max_tentativas} tentativas — Qwen pode nao ter gerado texto", flush=True)
+        return texto  # retorna vazio mesmo, deixa o parser decidir
 
     @staticmethod
     async def _ultima_resposta_page(page):

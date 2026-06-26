@@ -172,6 +172,8 @@ class QwenReplyAsync:
             page = self._page
         tag = tag or _page_tag(page)
         try:
+            # Proativamente instalar overlay observer ANTES de qualquer interacao
+            await self._force_remove_overlay(page, tag=tag)
             if arquivo:
                 await self._upload_page(page, arquivo, tag=tag)
             await self._enviar_page(page, prompt, timeout, tag=tag)
@@ -179,6 +181,9 @@ class QwenReplyAsync:
             return resultado
         except:
             raise
+        finally:
+            # Parar observer depois da interacao
+            await self._stop_overlay_observer(page, tag=tag)
 
     async def close(self):
         """Fecha o browser e o playwright com garantia DETERMINISTICA de morte do Chrome.
@@ -319,8 +324,7 @@ class QwenReplyAsync:
             )
             if not welcome_title:
                 # Modal generico — tentar remover via JS
-                await page.evaluate('document.querySelector(".qwen-modal-overlay")?.remove()')
-                print(f"    [{tag}] Modal generico removido via JS", flush=True)
+                await QwenReplyAsync._force_remove_overlay(page, tag=tag)
                 return
 
             # E o Welcome modal — tentar clicar "Stay logged out"
@@ -334,16 +338,63 @@ class QwenReplyAsync:
                 if not overlay2 or not await overlay2.is_visible():
                     return
                 # Nao sumiu — forcar remocao
-                await page.evaluate('document.querySelector(".qwen-modal-overlay")?.remove()')
-                print(f"    [{tag}] Welcome modal forcado via JS", flush=True)
+                await QwenReplyAsync._force_remove_overlay(page, tag=tag)
             else:
                 # Nao tem botao Stay logged out — forcar remocao
-                await page.evaluate('document.querySelector(".qwen-modal-overlay")?.remove()')
-                print(f"    [{tag}] Modal sem 'Stay logged out' removido via JS", flush=True)
+                await QwenReplyAsync._force_remove_overlay(page, tag=tag)
         except SessionExpiredError:
             raise
         except Exception as e:
             print(f"    [{tag}] Erro ao remover modal: {e}", flush=True)
+
+    @staticmethod
+    async def _force_remove_overlay(page, tag="aba"):
+        """Remove FORCADAMENTE o overlay modal via JS + instala MutationObserver.
+
+        Estrategia: Remove overlay + instala observer que remove automaticamente
+        se o React re-renderizar o modal. O observer fica ativo ate ser parado
+        via _stop_overlay_observer (chamado depois que o Qwen comeca a gerar).
+        """
+        try:
+            result = await page.evaluate("""
+                () => {
+                    const overlays = document.querySelectorAll('.qwen-modal-overlay');
+                    let count = 0;
+                    overlays.forEach(el => { el.remove(); count++; });
+                    document.querySelectorAll('.qwen-modal-mask, [class*="modal-mask"], [class*="modal-wrap"]').forEach(el => el.remove());
+                    if (!window.__kwai_overlay_observer) {
+                        window.__kwai_overlay_observer = new MutationObserver((mutations) => {
+                            for (const mutation of mutations) {
+                                for (const node of mutation.addedNodes) {
+                                    if (node.nodeType === 1) {
+                                        if (node.classList && node.classList.contains('qwen-modal-overlay')) node.remove();
+                                        const inner = node.querySelectorAll ? node.querySelectorAll('.qwen-modal-overlay') : [];
+                                        inner.forEach(el => el.remove());
+                                    }
+                                }
+                            }
+                        });
+                        window.__kwai_overlay_observer.observe(document.body, { childList: true, subtree: true });
+                    }
+                    return count;
+                }
+            """)
+            if result > 0:
+                print(f"    [{tag}] Overlay removido ({result}) + observer ativo", flush=True)
+        except Exception as e:
+            print(f"    [{tag}] Erro overlay JS: {e}", flush=True)
+            try:
+                await page.evaluate("document.querySelectorAll('.qwen-modal-overlay').forEach(el => { el.style.pointerEvents='none'; el.style.display='none'; })")
+            except:
+                pass
+
+    @staticmethod
+    async def _stop_overlay_observer(page, tag="aba"):
+        """Para o MutationObserver de overlay."""
+        try:
+            await page.evaluate("if(window.__kwai_overlay_observer){window.__kwai_overlay_observer.disconnect();window.__kwai_overlay_observer=null;}")
+        except:
+            pass
 
     @staticmethod
     async def _upload_page(page, caminho, tag="aba"):
@@ -355,13 +406,30 @@ class QwenReplyAsync:
         # Passo 0: garantir que nenhum modal esta bloqueando
         await QwenReplyAsync._dismiss_modal(page, tag=tag)
 
-        # Passo 1: clicar no botao de modo/upload
-        try:
-            await page.locator(".mode-select-open").click()
-            print(f"    [{tag}] Upload passo 1/4: botao mode-select-open clicado", flush=True)
-        except Exception as e:
-            print(f"    [{tag}] Upload FALHOU passo 1: nao conseguiu clicar em .mode-select-open — {e}", flush=True)
-            raise RuntimeError(f"Upload falhou: botao mode-select-open nao encontrado/nao clicavel — {e}")
+        # Passo 1: clicar no botao de modo/upload (com retry para overlay)
+        click_ok = False
+        for click_attempt in range(3):
+            try:
+                await page.locator(".mode-select-open").click(timeout=10000)
+                click_ok = True
+                print(f"    [{tag}] Upload passo 1/4: botao mode-select-open clicado", flush=True)
+                break
+            except Exception as e:
+                erro_str = str(e)
+                if "intercepts pointer events" in erro_str or "modal-overlay" in erro_str:
+                    print(f"    [{tag}] Upload ATENCAO: overlay bloqueando clique (tentativa {click_attempt+1}/3), removendo...", flush=True)
+                    await QwenReplyAsync._force_remove_overlay(page, tag=tag)
+                    await page.wait_for_timeout(500)
+                else:
+                    print(f"    [{tag}] Upload FALHOU passo 1: nao conseguiu clicar em .mode-select-open — {e}", flush=True)
+                    raise RuntimeError(f"Upload falhou: botao mode-select-open nao encontrado/nao clicavel — {e}")
+        if not click_ok:
+            # Ultimo recurso: clicar via JS
+            try:
+                await page.evaluate("document.querySelector('.mode-select-open')?.click()")
+                print(f"    [{tag}] Upload passo 1/4: mode-select-open clicado via JS", flush=True)
+            except:
+                raise RuntimeError("Upload falhou: mode-select-open nao clicavel nem via JS")
 
         # Passo 2: esperar dropdown aparecer
         try:
@@ -436,31 +504,124 @@ class QwenReplyAsync:
             await page.locator("textarea").fill(prompt)
             print(f"    [{tag}] Envio passo 1/3: textarea preenchida (\"{prompt_preview}...\")", flush=True)
         except Exception as e:
-            print(f"    [{tag}] Envio FALHOU passo 1: nao conseguiu preencher textarea — {e}", flush=True)
-            raise RuntimeError(f"Envio falhou: textarea nao encontrada ou nao preenchivel — {e}")
+            # Modal pode ter aparecido entre dismiss e fill — tentar remover
+            await QwenReplyAsync._force_remove_overlay(page, tag=tag)
+            try:
+                await page.locator("textarea").fill(prompt)
+                print(f"    [{tag}] Envio passo 1/3: textarea preenchida (apos remover overlay)", flush=True)
+            except Exception as e2:
+                print(f"    [{tag}] Envio FALHOU passo 1: nao conseguiu preencher textarea — {e2}", flush=True)
+                raise RuntimeError(f"Envio falhou: textarea nao encontrada ou nao preenchivel — {e2}")
 
-        # Passo 2: clicar send
-        try:
-            await page.locator(".send-button").click()
-            print(f"    [{tag}] Envio passo 2/3: send-button clicado, aguardando Qwen comecar a gerar...", flush=True)
-        except Exception as e:
-            print(f"    [{tag}] Envio FALHOU passo 2: nao conseguiu clicar em .send-button — {e}", flush=True)
-            raise RuntimeError(f"Envio falhou: botao send nao encontrado ou nao clicavel — {e}")
+        # Passo 2: clicar send (com retry para overlay)
+        send_clicked = False
+        for send_attempt in range(3):
+            try:
+                await page.locator(".send-button").click(timeout=10000)
+                send_clicked = True
+                print(f"    [{tag}] Envio passo 2/3: send-button clicado, aguardando Qwen comecar a gerar...", flush=True)
+                break
+            except Exception as e:
+                erro_str = str(e)
+                if "intercepts pointer events" in erro_str or "modal-overlay" in erro_str:
+                    print(f"    [{tag}] Envio ATENCAO: overlay bloqueando clique (tentativa {send_attempt+1}/3), removendo...", flush=True)
+                    await QwenReplyAsync._force_remove_overlay(page, tag=tag)
+                    await page.wait_for_timeout(500)
+                else:
+                    print(f"    [{tag}] Envio FALHOU passo 2: nao conseguiu clicar em .send-button — {e}", flush=True)
+                    raise RuntimeError(f"Envio falhou: botao send nao encontrado ou nao clicavel — {e}")
+
+        if not send_clicked:
+            # Ultimo recurso: clicar via JS
+            print(f"    [{tag}] Envio: tentando clique via JS como ultimo recurso...", flush=True)
+            try:
+                await page.evaluate("document.querySelector('.send-button')?.click()")
+                send_clicked = True
+                print(f"    [{tag}] Envio passo 2/3: send-button clicado via JS", flush=True)
+            except Exception as e:
+                raise RuntimeError(f"Envio falhou: send-button nao clicavel nem via JS — {e}")
 
         # Passo 3: esperar stop-button aparecer (Qwen comecou a gerar)
         try:
             await page.wait_for_selector(".stop-button", timeout=min(timeout * 1000, 30000))
             print(f"    [{tag}] Envio passo 3/3: stop-button apareceu — Qwen esta GERANDO resposta", flush=True)
         except PlaywrightTimeout:
-            # Qwen nao comecou a gerar — verificar erros
+            # Qwen nao comecou a gerar — verificar erros e overlay
+            # Primeiro: verificar se overlay reapareceu
+            overlay_present = await page.evaluate("!!document.querySelector('.qwen-modal-overlay')")
+            if overlay_present:
+                print(f"    [{tag}] Envio ATENCAO: overlay reapareceu apos send, removendo e tentando novamente...", flush=True)
+                await QwenReplyAsync._force_remove_overlay(page, tag=tag)
+                await page.wait_for_timeout(500)
+                # Re-preencher e reenviar
+                try:
+                    await page.locator("textarea").fill(prompt)
+                    await page.locator(".send-button").click(timeout=10000)
+                    await page.wait_for_selector(".stop-button", timeout=15000)
+                    print(f"    [{tag}] Envio: stop-button apareceu apos retry com overlay removido", flush=True)
+                    # Pular para a etapa de espera
+                    pass
+                except:
+                    pass  # Cai no diagnostico abaixo
+                else:
+                    # Sucesso no retry — pular para espera de conclusao
+                    elapsed_placeholder = 0
+                    deadline = time.time() + timeout
+                    # Ir direto para o loop de espera
+                    goto_wait_loop = True
+                    if not goto_wait_loop:
+                        pass  # Nunca executado, apenas para controle de fluxo
+                    else:
+                        # Espera o Qwen terminar de gerar (stop-button desaparece)
+                        last_log = time.time()
+                        while time.time() < deadline:
+                            try:
+                                remaining_ms = int((deadline - time.time()) * 1000)
+                                await page.wait_for_function(
+                                    "() => !document.querySelector('.stop-button')",
+                                    timeout=min(30000, max(remaining_ms, 1000))
+                                )
+                                await page.wait_for_timeout(2000)
+                                elapsed_total = timeout - (deadline - time.time())
+                                print(f"    [{tag}] Geracao concluida em {elapsed_total:.0f}s — stop-button sumiu", flush=True)
+                                return
+                            except PlaywrightTimeout:
+                                erro = await QwenReplyAsync._checar_erro_qwen(page)
+                                if erro:
+                                    print(f"    [{tag}] Geracao FALHOU: erro detectado durante geracao: {erro}", flush=True)
+                                    raise RuntimeError(f"Qwen erro durante geracao: {erro}")
+                                still_generating = await page.evaluate("!!document.querySelector('.stop-button')")
+                                if not still_generating:
+                                    await page.wait_for_timeout(2000)
+                                    elapsed_total = timeout - (deadline - time.time())
+                                    print(f"    [{tag}] Geracao concluida em {elapsed_total:.0f}s — stop-button sumiu (via evaluate)", flush=True)
+                                    return
+                                now = time.time()
+                                if now - last_log >= 30:
+                                    elapsed_so_far = timeout - (deadline - now)
+                                    remaining = deadline - now
+                                    print(f"    [{tag}] Ainda gerando... {elapsed_so_far:.0f}s decorridos, {remaining:.0f}s restantes", flush=True)
+                                    last_log = now
+                        elapsed_total = timeout
+                        erro = await QwenReplyAsync._checar_erro_qwen(page)
+                        still_generating = await page.evaluate("!!document.querySelector('.stop-button')")
+                        if erro:
+                            raise RuntimeError(f"Qwen timeout + erro: {erro}")
+                        if still_generating:
+                            raise RuntimeError(f"Qwen ainda gerando apos {timeout}s (stop-button visivel)")
+                        else:
+                            raise RuntimeError(f"Qwen timeout {timeout}s — stop-button sumiu mas sem resposta")
+            
+            # Verificar erro na pagina
             erro = await QwenReplyAsync._checar_erro_qwen(page)
             if erro:
                 print(f"    [{tag}] Envio FALHOU: stop-button nao apareceu, erro na pagina: {erro}", flush=True)
                 raise RuntimeError(f"Qwen erro na pagina: {erro}")
-            # Tentar clicar send novamente
+            # Tentar clicar send novamente (com dismiss modal)
             print(f"    [{tag}] Envio ATENCAO: stop-button nao apareceu em 30s, tentando clicar send novamente...", flush=True)
+            await QwenReplyAsync._dismiss_modal(page, tag=tag)
             try:
-                await page.locator(".send-button").click()
+                await page.locator(".send-button").click(timeout=10000)
                 await page.wait_for_selector(".stop-button", timeout=15000)
                 print(f"    [{tag}] Envio: stop-button apareceu na 2a tentativa — Qwen gerando", flush=True)
             except:
@@ -468,8 +629,9 @@ class QwenReplyAsync:
                 textarea_visivel = await page.evaluate("!!document.querySelector('textarea')")
                 send_visivel = await page.evaluate("!!document.querySelector('.send-button')")
                 stop_visivel = await page.evaluate("!!document.querySelector('.stop-button')")
+                overlay_visivel = await page.evaluate("!!document.querySelector('.qwen-modal-overlay')")
                 erro_final = await QwenReplyAsync._checar_erro_qwen(page)
-                estado = f"textarea={'sim' if textarea_visivel else 'nao'} send={'sim' if send_visivel else 'nao'} stop={'sim' if stop_visivel else 'nao'} erro={'sim: '+erro_final if erro_final else 'nao'}"
+                estado = f"textarea={'sim' if textarea_visivel else 'nao'} send={'sim' if send_visivel else 'nao'} stop={'sim' if stop_visivel else 'nao'} overlay={'sim' if overlay_visivel else 'nao'} erro={'sim: '+erro_final if erro_final else 'nao'}"
                 print(f"    [{tag}] Envio FALHOU: Qwen nao gerou apos 2 tentativas. Estado da pagina: {estado}", flush=True)
                 raise RuntimeError(f"Qwen nao comecou a gerar. Estado da pagina: {estado}")
 

@@ -274,11 +274,15 @@ def main():
         try:
             from Playwright.qwen_account_pool import AccountPool, load_accounts_config
             accounts_config = load_accounts_config()
-            headless = os.environ.get("QWEN_HEADLESS", "True").lower() in ("true", "1", "yes")
-            log.info(f"Aquecendo {len(accounts_config)} contas Qwen (headless={headless})...")
-            pool = AccountPool.initialize(accounts_config, headless=headless)
-            log.info(f"Pool pronto! {pool.ready_count}/{pool.total_accounts} contas — "
-                     f"max {pool.max_concurrent_jobs} jobs simultaneos")
+            if len(accounts_config) < 2:
+                log.warn(f"Apenas {len(accounts_config)} conta(s) — precisa de 2+ para pool")
+                log.warn("Rodando sem pool — modo legado (1 Chrome por job)")
+            else:
+                headless = os.environ.get("QWEN_HEADLESS", "True").lower() in ("true", "1", "yes")
+                log.info(f"Aquecendo {len(accounts_config)} contas Qwen (headless={headless})...")
+                pool = AccountPool.initialize(accounts_config, headless=headless)
+                log.info(f"Pool pronto! {pool.ready_count}/{pool.total_accounts} contas — "
+                         f"max {pool.max_concurrent_jobs} jobs simultaneos")
         except FileNotFoundError as e:
             log.warn(f"AccountPool: {e}")
             log.warn("Rodando sem pool — modo legado (1 Chrome por job)")
@@ -337,10 +341,16 @@ def run_pipeline_workers(pool=None):
     stop_event = threading.Event()
 
     # Determinar numero de threads prepare
-    if pool:
+    # Precisa de PELO MENOS 2 contas para paralelizar (1 job = 2 contas).
+    # Se nao tem contas suficientes, cai para modo legado (1 thread, sem pool).
+    if pool and pool.max_concurrent_jobs >= 1:
         num_prep = pool.max_concurrent_jobs
         log.info(f"Pool ativo: {pool.total_accounts} contas, {num_prep} esteiras prepare")
     else:
+        if pool and pool.total_accounts < 2:
+            log.warn(f"Pool tem {pool.total_accounts} contas — precisa de 2+ para paralelizar")
+            log.warn("Caindo para modo legado (1 thread, sem pool)")
+            pool = None  # Nao usar pool com contas insuficientes
         num_prep = 1
         log.info("Sem pool: 1 esteira prepare (modo legado)")
 

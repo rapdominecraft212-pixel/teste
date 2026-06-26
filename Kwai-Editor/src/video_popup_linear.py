@@ -25,6 +25,24 @@ BLUR_RADIUS = 30
 BLUR_DOWNSAMPLE_WIDTH = 160
 ENCODER_PRESET = "veryfast"  # muito mais rapido que medium, qualidade quase identica a olho nu
 
+# === Controle de threads FFmpeg para renders paralelos ===
+# Quando N renders rodam em paralelo, cada FFmpeg deve usar menos threads
+# para evitar contenção de CPU. Valor 0 = automático (usa todos os núcleos).
+# Configurável via FFMPEG_THREADS_PER_RENDER (ex: "2" para limitar).
+import os as _os
+_FFMPEG_THREADS_PER_RENDER = int(_os.environ.get("FFMPEG_THREADS_PER_RENDER", "0"))
+
+
+def _ffmpeg_threads():
+    """Retorna o número de threads FFmpeg para este render.
+
+    Se FFMPEG_THREADS_PER_RENDER=0 (default), usa todos os núcleos (comportamento original).
+    Se configurado manualmente (ex: 2), limita para evitar contenção em renders paralelos.
+    """
+    if _FFMPEG_THREADS_PER_RENDER > 0:
+        return str(_FFMPEG_THREADS_PER_RENDER)
+    return "0"
+
 # === Fase 1: pre-render do background blur ===
 USE_PRERENDERED_BG = True
 PRERENDER_BG_SIGMA = 30  # Gaussian blur sigma (gblur) — vidro embaçado suave
@@ -135,7 +153,7 @@ def _prerender_background(input_path: str, duration: float, output_path: str) ->
         "-i", input_path,
         "-t", str(duration),
         "-vf", f"scale={FINAL_SIZE[0]}:{FINAL_SIZE[1]}:force_original_aspect_ratio=increase,setsar=1:1,gblur=sigma={PRERENDER_BG_SIGMA},crop={FINAL_SIZE[0]}:{FINAL_SIZE[1]}",
-        "-threads", "0",  # Usar TODOS os nucleos
+        "-threads", _ffmpeg_threads(),  # Limitado em renders paralelos
         "-c:v", "libx264",
         "-preset", "veryfast",
         "-crf", "28",  # BG blur nao precisa de alta qualidade
@@ -513,7 +531,7 @@ def _composite_with_ffmpeg(video_path: str, bg_path: str, popup_path: str | None
         "-c:v", "libx264",
         "-preset", ENCODER_PRESET,
         "-crf", str(VIDEO_QUALITY),
-        "-threads", "0",  # Usar TODOS os núcleos da CPU
+        "-threads", _ffmpeg_threads(),  # Limitado em renders paralelos
         "-pix_fmt", "yuv420p",
         "-movflags", "faststart",
         "-c:a", "aac",
@@ -579,16 +597,78 @@ def criar_video(
         source_clip = source_clip.subclipped(0, duration)
         duration = source_clip.duration
 
-    # === Fase 1: pre-renderizar bg blur (uma unica vez com ffmpeg) ===
+    # === Fase 1+2: pre-render BG blur + popup em PARALELO ===
+    # BG pre-render precisa: input_path, duration
+    # Popup pre-render precisa: titulo, subtitulo, duration, timings
+    # São INDEPENDENTES — podem rodar ao mesmo tempo!
     bg_cache_path = None
+    popup_cache_path = None
+    popup_prerendered_ok = False
+
+    # Preparar paths dos caches
     if USE_PRERENDERED_BG and not is_image:
         input_hash = hashlib.md5(f"{input_path}_{duration:.2f}".encode()).hexdigest()[:12]
         bg_cache_path = str(Path(tempfile.gettempdir()) / f"vpl_bg_{input_hash}.mp4")
-        try:
-            _prerender_background(input_path, duration, bg_cache_path)
-        except Exception as e:
-            print(f"WARN: pre-render bg falhou ({e}), usando fallback Python")
-            bg_cache_path = None
+    if USE_PRERENDERED_POPUP:
+        popup_hash = hashlib.md5(
+            f"{titulo}|{subtitulo}|{duration:.2f}".encode()
+        ).hexdigest()[:12]
+        popup_cache_path = str(Path(tempfile.gettempdir()) / f"vpl_popup_{popup_hash}.mov")
+
+    # Executar ambos em paralelo com ThreadPoolExecutor
+    if bg_cache_path and popup_cache_path:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def _do_bg():
+            try:
+                _prerender_background(input_path, duration, bg_cache_path)
+                return ('bg', True, None)
+            except Exception as e:
+                return ('bg', False, e)
+
+        def _do_popup():
+            try:
+                _prerender_popup(
+                    titulo, subtitulo, duration,
+                    popup_1_in, popup_1_out, transition_dur,
+                    popup_fade_in, text_fade_dur, popup_cache_path
+                )
+                return ('popup', True, None)
+            except Exception as e:
+                return ('popup', False, e)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(_do_bg), executor.submit(_do_popup)]
+            for future in as_completed(futures):
+                which, ok, err = future.result()
+                if which == 'bg' and not ok:
+                    print(f"WARN: pre-render bg falhou ({err}), usando fallback Python")
+                    bg_cache_path = None
+                elif which == 'popup' and not ok:
+                    print(f"WARN: pre-render popup falhou ({err}), usando fallback Python")
+                    popup_cache_path = None
+
+        if popup_cache_path and os.path.exists(popup_cache_path):
+            popup_prerendered_ok = True
+    else:
+        # Fallback: sequencial (se um dos dois estiver desabilitado)
+        if bg_cache_path:
+            try:
+                _prerender_background(input_path, duration, bg_cache_path)
+            except Exception as e:
+                print(f"WARN: pre-render bg falhou ({e}), usando fallback Python")
+                bg_cache_path = None
+        if popup_cache_path:
+            try:
+                _prerender_popup(
+                    titulo, subtitulo, duration,
+                    popup_1_in, popup_1_out, transition_dur,
+                    popup_fade_in, text_fade_dur, popup_cache_path
+                )
+                popup_prerendered_ok = True
+            except Exception as e:
+                print(f"WARN: pre-render popup falhou ({e}), usando fallback Python")
+                popup_cache_path = None
 
     background = make_background(source_clip, duration, is_image, input_path,
                                   bg_cache_path=bg_cache_path)
@@ -605,25 +685,13 @@ def criar_video(
     y_off = VIDEO_Y + (VIDEO_H - new_h) // 2
     main_video = main_video.with_position((x_off, y_off))
 
-    # === Fase 2: pre-render do popup com canal alpha ===
-    popup_cache_path = None
-    popup_prerendered_ok = False
-    if USE_PRERENDERED_POPUP:
-        popup_hash = hashlib.md5(
-            f"{titulo}|{subtitulo}|{duration:.2f}".encode()
-        ).hexdigest()[:12]
-        popup_cache_path = str(Path(tempfile.gettempdir()) / f"vpl_popup_{popup_hash}.mov")
+    # Popup: usar pre-renderizado ou fallback
+    if popup_prerendered_ok and popup_cache_path and os.path.exists(popup_cache_path):
         try:
-            _prerender_popup(
-                titulo, subtitulo, duration,
-                popup_1_in, popup_1_out, transition_dur,
-                popup_fade_in, text_fade_dur, popup_cache_path
-            )
             popup = VideoFileClip(popup_cache_path, has_mask=True)
             popup = popup.with_position((POPUP_X, POPUP_Y))
-            popup_prerendered_ok = True
         except Exception as e:
-            print(f"WARN: pre-render popup falhou ({e}), usando fallback Python")
+            print(f"WARN: carregar popup pre-renderizado falhou ({e}), usando fallback Python")
             popup_prerendered_ok = False
 
     # Fallback: popup calculado frame a frame em Python (comportamento original)

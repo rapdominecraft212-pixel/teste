@@ -1,22 +1,22 @@
-# Worklog — Kwai-Editor
-
 ---
 Task ID: 1
-Agent: Main Agent
-Task: Investigar e corrigir conflito de Chrome entre Jobs consecutivos
+Agent: Main
+Task: Mapear SEQUENCIAL vs PARALELO no pipeline e paralelizar o restante
 
 Work Log:
-- Analisou ciclo de vida do Chrome em worker_prepare → preparar_video() → QwenReplyAsync
-- Descobriu CAUSA RAIZ: _limpar() usava self._perfil.lower() no pkill -f, mas Chrome roda com path original (Kwai-Editor ≠ kwai-editor). pkill -f é case-sensitive no Linux, então nunca encontrava o processo.
-- Chrome do Job anterior continuava vivo → perfil travado → Job 2 abria Chrome em estado degradado → .mode-select-open não funcionava
-- Corrigiu _limpar() em qwen_reply_async.py: pkill -f -i (case-insensitive)
-- Adicionou _esperar_chrome_morto(): polling com pgrep -f -i, timeout 8s
-- Modificou close() para verificar se Chrome morreu de verdade, forçar pkill se não
-- Adicionou pausa de 2s entre jobs em worker_prepare como margem de segurança
-- Aplicou mesma correção em qwen_reply.py (versão sync)
-- Commit + push: 217bfbb
+- Analisou todos os arquivos do pipeline (worker.py, simple.py, video_popup_linear.py, cortar_video.py, db.py)
+- Mapeou o que é SEQUENCIAL vs PARALELO:
+  - PARALELO: Qwen (3 jobs × 2 contas = 6 contas), Download, Validação URL
+  - SEQUENCIAL: Render (1 thread para TODOS os jobs) ← GARGALO PRINCIPAL
+- Implementou N render threads em worker.py (era 1, agora N = num_prep)
+- Paralelizou BG pre-render + Popup pre-render dentro de criar_video() com ThreadPoolExecutor
+- Adicionou controle de FFmpeg threads por render (FFMPEG_THREADS_PER_RENDER) para evitar contenção
+- Adicionou acquire_ready_to_render_job() atômica no db.py (BEGIN IMMEDIATE) para thread-safety
+- Validou que render paralelo funciona: 2 vídeos criados no mesmo segundo (Teste 0 e Teste 1, 17:24:41)
 
 Stage Summary:
-- Bug de case sensitivity era a causa raiz do conflito Chrome
-- 3 camadas de defesa: pkill -i, verificação após close, pausa entre jobs
-- Arquivos modificados: Playwright/qwen_reply_async.py, Playwright/qwen_reply.py, bot/worker.py
+- Render agora roda N threads em paralelo (antes era 1 thread sequencial)
+- BG + Popup pre-render rodam em paralelo dentro de cada job (antes era sequencial)
+- FFmpeg threads ajustados automaticamente: cores / num_render
+- Race condition corrigida com acquire_ready_to_render_job() atômica
+- Speedup esperado: de ~260s para ~160s para 3 jobs (render paralelo elimina fila)

@@ -66,7 +66,7 @@ def cortar_video(input_path: str, y1: int, y2: int, output_dir: str = "cortado")
             "-c:v", "libx264",
             "-preset", "veryfast",
             "-crf", "23",
-            "-threads", "0",
+            "-threads", "2",  # Limitado para renders paralelos
             "-c:a", "copy",
             output_path,
         ]

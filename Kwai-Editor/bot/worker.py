@@ -14,7 +14,7 @@ from db import (
     count_processing, recover_processing_jobs,
     # Fase 2: novos estados e funções do pipeline paralelo
     set_job_preparing, set_job_ready_to_render, set_job_rendering,
-    get_preparation_data, get_next_ready_to_render_job,
+    get_preparation_data, get_next_ready_to_render_job, acquire_ready_to_render_job,
     count_ready_to_render, validate_preparation_data, recover_pipeline_jobs,
 )
 from checar_link import validar as validar_link
@@ -31,6 +31,16 @@ BASE_DIR = PROJECT_ROOT
 # USE_PIPELINE=False: roda worker antigo sequencial (process_job)
 # Configurável via .env (USE_PIPELINE), default True
 USE_PIPELINE = os.environ.get("USE_PIPELINE", "True").lower() in ("true", "1", "yes")
+
+# MAX_PARALLEL_JOBS: número máximo de jobs simultâneos.
+# Cada job usa 2 contas do pool (capa+titulo + linha) + 1 thread de render.
+# O cálculo automático é: total_contas // 2, MAS pode ser limitado aqui.
+# Para i3-2120 (2 cores/4 threads, 8GB RAM): RECOMENDADO = 2
+# Configurável via .env (MAX_PARALLEL_JOBS), default 0 = auto (contas//2)
+try:
+    MAX_PARALLEL_JOBS = int(os.environ.get("MAX_PARALLEL_JOBS", "2"))
+except ValueError:
+    MAX_PARALLEL_JOBS = 2
 
 # MAX_READY_TO_RENDER: limite de jobs que podem estar prontos para render
 # (na fila B) ao mesmo tempo. Quando atinge, esteira A pausa.
@@ -326,14 +336,15 @@ def run_sequential_worker():
 
 
 def run_pipeline_workers(pool=None):
-    """Modo pipeline: N threads prepare + 1 thread render.
+    """Modo pipeline: N threads prepare + N threads render (PARALELO).
 
     - Esteiras Prepare (N threads): pega jobs queued, faz download + Qwen,
       marca ready_to_render com prep_data.
       Se pool disponível, cada job usa 2 contas do pool (login já feito).
       N = max_concurrent_jobs do pool, ou 1 se sem pool.
-    - Esteira Render (1 thread): pega jobs ready_to_render, faz corte +
+    - Esteiras Render (N threads): pega jobs ready_to_render, faz corte +
       render + cleanup, marca ready.
+      N render threads = N prepare threads = jobs simultâneos.
 
     A esteira Prepare respeita MAX_READY_TO_RENDER: se fila render estiver
     cheia, pausa.
@@ -343,9 +354,13 @@ def run_pipeline_workers(pool=None):
     # Determinar numero de threads prepare
     # Precisa de PELO MENOS 2 contas para paralelizar (1 job = 2 contas).
     # Se nao tem contas suficientes, cai para modo legado (1 thread, sem pool).
+    # MAX_PARALLEL_JOBS limita o número de jobs simultâneos (mesmo com mais contas).
     if pool and pool.max_concurrent_jobs >= 1:
         num_prep = pool.max_concurrent_jobs
-        log.info(f"Pool ativo: {pool.total_accounts} contas, {num_prep} esteiras prepare")
+        if MAX_PARALLEL_JOBS > 0 and num_prep > MAX_PARALLEL_JOBS:
+            log.info(f"MAX_PARALLEL_JOBS={MAX_PARALLEL_JOBS} limitando de {num_prep} para {MAX_PARALLEL_JOBS} jobs")
+            num_prep = MAX_PARALLEL_JOBS
+        log.info(f"Pool ativo: {pool.total_accounts} contas, {num_prep} jobs simultâneos")
     else:
         if pool and pool.total_accounts < 2:
             log.warn(f"Pool tem {pool.total_accounts} contas — precisa de 2+ para paralelizar")
@@ -353,6 +368,23 @@ def run_pipeline_workers(pool=None):
             pool = None  # Nao usar pool com contas insuficientes
         num_prep = 1
         log.info("Sem pool: 1 esteira prepare (modo legado)")
+
+    # N render threads = mesmo número de prepare threads
+    # Cada render é independente (FFmpeg subprocess), roda em paralelo
+    num_render = num_prep
+    log.info(f"{num_render} esteiras render (PARALELO — 1 render por prepare)")
+
+    # Ajustar FFmpeg threads por render para evitar contenção de CPU
+    # Com N renders paralelos, cada FFmpeg deve usar ~cores/N threads
+    if num_render > 1 and "FFMPEG_THREADS_PER_RENDER" not in os.environ:
+        cpu_count = os.cpu_count() or 4
+        threads_per_render = max(1, cpu_count // num_render)
+        os.environ["FFMPEG_THREADS_PER_RENDER"] = str(threads_per_render)
+        log.info(f"CPU: {cpu_count} cores, {num_render} renders -> "
+                 f"FFmpeg threads/render={threads_per_render}")
+    elif "FFMPEG_THREADS_PER_RENDER" not in os.environ:
+        os.environ["FFMPEG_THREADS_PER_RENDER"] = "0"  # Usa todos os cores (1 render)
+        log.info("FFmpeg threads/render=0 (1 render — usa todos os cores)")
 
     # Criar N threads prepare
     prep_threads = []
@@ -365,20 +397,24 @@ def run_pipeline_workers(pool=None):
         )
         prep_threads.append(t)
 
-    # 1 thread render
-    render_thread = threading.Thread(
-        target=worker_render,
-        args=(stop_event,),
-        name="esteira_render",
-        daemon=True,
-    )
+    # N threads render
+    render_threads = []
+    for i in range(num_render):
+        t = threading.Thread(
+            target=worker_render,
+            args=(stop_event, i),
+            name=f"esteira_render_{i}",
+            daemon=True,
+        )
+        render_threads.append(t)
 
     # Iniciar todas
     for t in prep_threads:
         t.start()
         log.info(f"{t.name} iniciada — TID={t.native_id}")
-    render_thread.start()
-    log.info(f"{render_thread.name} iniciada — TID={render_thread.native_id}")
+    for t in render_threads:
+        t.start()
+        log.info(f"{t.name} iniciada — TID={t.native_id}")
 
     try:
         # Main thread apenas aguarda Ctrl+C
@@ -391,7 +427,8 @@ def run_pipeline_workers(pool=None):
     # Aguardar esteiras terminarem (com timeout)
     for t in prep_threads:
         t.join(timeout=10)
-    render_thread.join(timeout=10)
+    for t in render_threads:
+        t.join(timeout=10)
     log.info("Worker encerrado.")
 
 
@@ -524,8 +561,11 @@ def _prepare_with_pool(pool, job_id, saved_path, chat_id):
             log.info(f"[A {job_id[:12]}] Conta {conta_linha.id} devolvida ao pool")
 
 
-def worker_render(stop_event):
-    """Esteira B: pega jobs ready_to_render, faz corte + render + cleanup.
+def worker_render(stop_event, render_idx=0):
+    """Esteira Render: pega jobs ready_to_render, faz corte + render + cleanup.
+
+    Com N threads render, múltiplos jobs são renderizados em PARALELO.
+    Cada thread pega o próximo job disponível — sem dependência entre threads.
 
     Trata erros: se render falha, marca job como failed e continua.
     """
@@ -533,24 +573,24 @@ def worker_render(stop_event):
 
     while not stop_event.is_set():
         try:
-            job = get_next_ready_to_render_job()
+            # Usar função atômica para evitar race condition entre threads render
+            job = acquire_ready_to_render_job()
             if not job:
                 time.sleep(1)
                 continue
 
             job_id = job["job_id"]
             chat_id = job["chat_id"]
-            log.info(f"[B {job_id[:12]}] Pegou job para render")
+            log.info(f"[B{render_idx} {job_id[:12]}] Pegou job para render")
 
-            # Marcar como rendering
-            set_job_rendering(job_id)
+            # Job já está marcado como 'rendering' por acquire_ready_to_render_job()
 
             # Recuperar prep_data (código de barras do chassis)
             prep_data = get_preparation_data(job_id)
             ok, motivo = validate_preparation_data(prep_data)
             if not ok:
                 set_job_failed(job_id, f"prep_data_invalid: {motivo}")
-                log.error(f"[B {job_id[:12]}] prep_data inválido: {motivo}")
+                log.error(f"[B{render_idx} {job_id[:12]}] prep_data inválido: {motivo}")
                 continue
 
             # Renderizar (corte + render + cleanup)
@@ -575,7 +615,7 @@ def worker_render(stop_event):
 
             # Marcar como ready
             set_job_ready(job_id, final_path)
-            log.info(f"[B {job_id[:12]}] Render concluído: {final_path}")
+            log.info(f"[B{render_idx} {job_id[:12]}] Render concluído: {final_path}")
 
             # Notificar usuário
             send_telegram_message(
@@ -596,7 +636,7 @@ def worker_render(stop_event):
                 )
 
         except Exception as exc:
-            log.error(f"[B] Erro na esteira render: {exc}")
+            log.error(f"[B{render_idx}] Erro na esteira render: {exc}")
             traceback.print_exc()
             time.sleep(5)
 

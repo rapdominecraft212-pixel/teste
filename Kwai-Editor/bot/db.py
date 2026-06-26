@@ -375,12 +375,49 @@ def get_preparation_data(job_id) -> dict | None:
 
 def get_next_ready_to_render_job():
     """Pega próximo job em 'ready_to_render' (FIFO por created_at).
-    Retorna dict com todos os campos (incluindo preparation_data) ou None."""
+    Retorna dict com todos os campos (incluindo preparation_data) ou None.
+    
+    AVISO: Não é thread-safe. Use acquire_ready_to_render_job() para
+    múltiplas threads render em paralelo."""
     with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM jobs WHERE status = 'ready_to_render' ORDER BY created_at ASC LIMIT 1"
         ).fetchone()
     return dict(row) if row else None
+
+
+def acquire_ready_to_render_job():
+    """Atomicamente pega o próximo job 'ready_to_render' e marca como 'rendering'.
+    
+    Thread-safe: usa BEGIN IMMEDIATE para garantir que múltiplas threads
+    render não pegam o mesmo job. Retorna dict com status='rendering' ou None."""
+    import json
+    now = utc_now()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        # BEGIN IMMEDIATE: adquira lock de escrita antes de ler
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT * FROM jobs WHERE status = 'ready_to_render' ORDER BY created_at ASC LIMIT 1"
+        ).fetchone()
+        if row:
+            job_id = row["job_id"]
+            conn.execute(
+                "UPDATE jobs SET status = 'rendering', updated_at = ? WHERE job_id = ?",
+                (now, job_id)
+            )
+            # Re-read para retornar com status atualizado
+            row = conn.execute(
+                "SELECT * FROM jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
+        conn.commit()
+        return dict(row) if row else None
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def count_ready_to_render():

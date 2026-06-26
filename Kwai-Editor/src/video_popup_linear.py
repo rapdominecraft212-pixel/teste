@@ -135,9 +135,10 @@ def _prerender_background(input_path: str, duration: float, output_path: str) ->
         "-i", input_path,
         "-t", str(duration),
         "-vf", f"scale={FINAL_SIZE[0]}:{FINAL_SIZE[1]}:force_original_aspect_ratio=increase,setsar=1:1,gblur=sigma={PRERENDER_BG_SIGMA},crop={FINAL_SIZE[0]}:{FINAL_SIZE[1]}",
+        "-threads", "0",  # Usar TODOS os nucleos
         "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
+        "-preset", "veryfast",
+        "-crf", "28",  # BG blur nao precisa de alta qualidade
         "-an",
         output_path,
     ]

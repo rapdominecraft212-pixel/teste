@@ -1,0 +1,870 @@
+ain 1484991] cleanup: remover backup 2 (já existe no armazém) + ignorar upload/ (segurança)
+ 869 files changed, 1 insertion(+), 13372 deletions(-)
+ delete mode 100755 Kwai-Editor (backup: 2)/.env
+ delete mode 100755 Kwai-Editor (backup: 2)/.env.example
+ delete mode 100755 Kwai-Editor (backup: 2)/.gitignore
+ delete mode 100755 Kwai-Editor (backup: 2)/AGENTS.md
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/__init__.py
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Crashpad/metadata
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Crashpad/settings.dat
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Account Web Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Account Web Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Affiliation Database
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Affiliation Database-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/AutofillAiModelCache/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/AutofillAiModelCache/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/AutofillAiModelCache/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/AutofillStrikeDatabase/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/AutofillStrikeDatabase/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/AutofillStrikeDatabase/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/BookmarkMergedSurfaceOrdering
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/BudgetDatabase/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/BudgetDatabase/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/BudgetDatabase/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/ClientCertificates/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/ClientCertificates/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/ClientCertificates/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DIPS
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DawnGraphiteCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DawnGraphiteCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DawnGraphiteCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DawnGraphiteCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DawnGraphiteCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DawnWebGPUCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DawnWebGPUCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DawnWebGPUCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DawnWebGPUCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/DawnWebGPUCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension Rules/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension Rules/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension Rules/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension Scripts/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension Scripts/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension Scripts/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension State/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension State/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension State/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension State/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Extension State/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Favicons
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Favicons-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Feature Engagement Tracker/AvailabilityDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Feature Engagement Tracker/AvailabilityDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Feature Engagement Tracker/EventDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Feature Engagement Tracker/EventDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/000/t/.usage
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/000/t/00/00000000
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/000/t/Paths/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/000/t/Paths/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/000/t/Paths/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/000/t/Paths/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/000/t/Paths/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/Origins/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/Origins/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/Origins/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/Origins/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/File System/Origins/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/GCM Store/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/GCM Store/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/GCM Store/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/GCM Store/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/GCM Store/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/History
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/History-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Local Storage/leveldb/000005.ldb
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Local Storage/leveldb/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Local Storage/leveldb/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Local Storage/leveldb/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Local Storage/leveldb/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Local Storage/leveldb/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Login Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Login Data For Account
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Login Data For Account-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Login Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network Action Predictor
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network Action Predictor-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/Cookies
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/Cookies-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/Device Bound Sessions
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/Device Bound Sessions-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/Network Persistent State
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/NetworkDataMigrated
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/Reporting and NEL
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/Reporting and NEL-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/TransportSecurity
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/Trust Tokens
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Network/Trust Tokens-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/PersistentOriginTrials/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/PersistentOriginTrials/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/PersistentOriginTrials/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Preferences
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/PreferredApps
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/README
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Safe Browsing Network/NetworkDataMigrated
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Safe Browsing Network/Safe Browsing Cookies
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Safe Browsing Network/Safe Browsing Cookies-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Secure Preferences
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Segmentation Platform/SegmentInfoDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Segmentation Platform/SegmentInfoDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Segmentation Platform/SegmentInfoDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Segmentation Platform/SignalDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Segmentation Platform/SignalDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Segmentation Platform/SignalDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Segmentation Platform/SignalStorageConfigDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Segmentation Platform/SignalStorageConfigDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Segmentation Platform/SignalStorageConfigDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/ServerCertificate
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/ServerCertificate-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Session Storage/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Session Storage/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Session Storage/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Session Storage/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Session Storage/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Sessions/Session_13426768908760822
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Sessions/Session_13426769243103037
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Sessions/Tabs_13426768908996037
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Sessions/Tabs_13426769243297189
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Shared Dictionary/cache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Shared Dictionary/cache/index-dir/the-real-index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Shared Dictionary/db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Shared Dictionary/db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/SharedStorage
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Shortcuts
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Shortcuts-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Site Characteristics Database/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Site Characteristics Database/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Site Characteristics Database/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Site Characteristics Database/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Site Characteristics Database/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Sync Data/LevelDB/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Sync Data/LevelDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Sync Data/LevelDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Sync Data/LevelDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Sync Data/LevelDB/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Top Sites
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Top Sites-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Web Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/Web Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/WebStorage/QuotaManager
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/WebStorage/QuotaManager-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/chrome_cart_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/chrome_cart_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/chrome_cart_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/commerce_subscription_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/commerce_subscription_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/commerce_subscription_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/discount_infos_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/discount_infos_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/discount_infos_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/discounts_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/discounts_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/discounts_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/engine_allowlist.bf
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/heavy_ad_intervention_opt_out.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/heavy_ad_intervention_opt_out.db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/parcel_tracking_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/parcel_tracking_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/parcel_tracking_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/shared_proto_db/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/shared_proto_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/shared_proto_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/shared_proto_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/shared_proto_db/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/shared_proto_db/metadata/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/shared_proto_db/metadata/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/shared_proto_db/metadata/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/shared_proto_db/metadata/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/shared_proto_db/metadata/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Default/trusted_vault.pb
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.db-wal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/GrShaderCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/GrShaderCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/GrShaderCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/GrShaderCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/GrShaderCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Last Browser
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Last Version
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Local State
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/ShaderCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/ShaderCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/ShaderCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/ShaderCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/ShaderCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/Variations
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/component_crx_cache/metadata.json
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/extensions_crx_cache/metadata.json
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/first_party_sets.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/first_party_sets.db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile/segmentation_platform/ukm_db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Crashpad/metadata
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Crashpad/settings.dat
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Account Web Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Account Web Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Affiliation Database
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Affiliation Database-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/AutofillAiModelCache/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/AutofillAiModelCache/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/AutofillAiModelCache/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/AutofillStrikeDatabase/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/AutofillStrikeDatabase/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/AutofillStrikeDatabase/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/BookmarkMergedSurfaceOrdering
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/BudgetDatabase/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/BudgetDatabase/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/BudgetDatabase/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/ClientCertificates/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/ClientCertificates/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/ClientCertificates/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DIPS
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DawnGraphiteCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DawnGraphiteCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DawnGraphiteCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DawnGraphiteCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DawnGraphiteCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DawnWebGPUCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DawnWebGPUCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DawnWebGPUCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DawnWebGPUCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/DawnWebGPUCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension Rules/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension Rules/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension Rules/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension Scripts/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension Scripts/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension Scripts/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension State/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension State/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension State/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension State/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Extension State/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Favicons
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Favicons-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Feature Engagement Tracker/AvailabilityDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Feature Engagement Tracker/EventDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/000/t/.usage
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/000/t/00/00000000
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/000/t/Paths/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/000/t/Paths/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/000/t/Paths/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/000/t/Paths/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/000/t/Paths/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/Origins/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/Origins/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/Origins/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/Origins/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/File System/Origins/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/GCM Store/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/GCM Store/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/GCM Store/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/GCM Store/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/GCM Store/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/History
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/History-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Local Storage/leveldb/000005.ldb
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Local Storage/leveldb/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Local Storage/leveldb/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Local Storage/leveldb/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Local Storage/leveldb/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Local Storage/leveldb/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Login Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Login Data For Account
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Login Data For Account-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Login Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network Action Predictor
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network Action Predictor-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/Cookies
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/Cookies-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/Device Bound Sessions
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/Device Bound Sessions-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/Network Persistent State
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/NetworkDataMigrated
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/Reporting and NEL
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/Reporting and NEL-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/TransportSecurity
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/Trust Tokens
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Network/Trust Tokens-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/PersistentOriginTrials/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/PersistentOriginTrials/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/PersistentOriginTrials/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Preferences
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/PreferredApps
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/README
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Safe Browsing Network/NetworkDataMigrated
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Safe Browsing Network/Safe Browsing Cookies
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Safe Browsing Network/Safe Browsing Cookies-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Secure Preferences
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Segmentation Platform/SegmentInfoDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Segmentation Platform/SegmentInfoDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Segmentation Platform/SegmentInfoDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Segmentation Platform/SignalDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Segmentation Platform/SignalDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Segmentation Platform/SignalDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Segmentation Platform/SignalStorageConfigDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Segmentation Platform/SignalStorageConfigDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Segmentation Platform/SignalStorageConfigDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/ServerCertificate
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/ServerCertificate-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Session Storage/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Session Storage/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Session Storage/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Session Storage/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Session Storage/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Sessions/Session_13426761350355734
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Sessions/Session_13426761963958817
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Sessions/Tabs_13426761350565722
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Sessions/Tabs_13426761964238385
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Shared Dictionary/cache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Shared Dictionary/cache/index-dir/the-real-index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Shared Dictionary/db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Shared Dictionary/db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Shortcuts
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Shortcuts-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Site Characteristics Database/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Site Characteristics Database/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Site Characteristics Database/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Site Characteristics Database/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Site Characteristics Database/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Sync Data/LevelDB/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Sync Data/LevelDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Sync Data/LevelDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Sync Data/LevelDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Sync Data/LevelDB/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Top Sites
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Top Sites-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Web Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/Web Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/WebStorage/QuotaManager
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/WebStorage/QuotaManager-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/chrome_cart_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/chrome_cart_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/chrome_cart_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/commerce_subscription_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/commerce_subscription_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/commerce_subscription_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/discount_infos_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/discount_infos_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/discount_infos_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/discounts_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/discounts_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/discounts_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/engine_allowlist.bf
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/heavy_ad_intervention_opt_out.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/heavy_ad_intervention_opt_out.db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/parcel_tracking_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/parcel_tracking_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/parcel_tracking_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/shared_proto_db/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/shared_proto_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/shared_proto_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/shared_proto_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/shared_proto_db/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/shared_proto_db/metadata/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/shared_proto_db/metadata/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/shared_proto_db/metadata/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/shared_proto_db/metadata/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/shared_proto_db/metadata/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Default/trusted_vault.pb
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.db-wal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/GrShaderCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/GrShaderCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/GrShaderCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/GrShaderCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/GrShaderCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Last Browser
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Last Version
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Local State
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/ShaderCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/ShaderCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/ShaderCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/ShaderCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/ShaderCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/Variations
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/component_crx_cache/metadata.json
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/extensions_crx_cache/metadata.json
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/first_party_sets.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/first_party_sets.db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_1/segmentation_platform/ukm_db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Crashpad/metadata
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Crashpad/settings.dat
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Account Web Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Account Web Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Affiliation Database
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Affiliation Database-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/AutofillAiModelCache/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/AutofillAiModelCache/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/AutofillAiModelCache/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/AutofillStrikeDatabase/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/AutofillStrikeDatabase/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/AutofillStrikeDatabase/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/BookmarkMergedSurfaceOrdering
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/BudgetDatabase/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/BudgetDatabase/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/BudgetDatabase/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/ClientCertificates/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/ClientCertificates/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/ClientCertificates/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DIPS
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DawnGraphiteCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DawnGraphiteCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DawnGraphiteCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DawnGraphiteCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DawnGraphiteCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DawnWebGPUCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DawnWebGPUCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DawnWebGPUCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DawnWebGPUCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/DawnWebGPUCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension Rules/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension Rules/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension Rules/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension Scripts/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension Scripts/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension Scripts/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension State/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension State/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension State/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension State/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Extension State/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Favicons
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Favicons-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Feature Engagement Tracker/AvailabilityDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Feature Engagement Tracker/EventDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/000/t/.usage
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/000/t/00/00000000
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/000/t/Paths/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/000/t/Paths/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/000/t/Paths/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/000/t/Paths/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/000/t/Paths/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/Origins/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/Origins/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/Origins/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/Origins/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/File System/Origins/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/GCM Store/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/GCM Store/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/GCM Store/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/GCM Store/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/GCM Store/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/History
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/History-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Local Storage/leveldb/000005.ldb
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Local Storage/leveldb/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Local Storage/leveldb/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Local Storage/leveldb/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Local Storage/leveldb/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Local Storage/leveldb/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Login Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Login Data For Account
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Login Data For Account-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Login Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network Action Predictor
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network Action Predictor-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/Cookies
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/Cookies-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/Device Bound Sessions
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/Device Bound Sessions-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/Network Persistent State
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/NetworkDataMigrated
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/Reporting and NEL
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/Reporting and NEL-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/TransportSecurity
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/Trust Tokens
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Network/Trust Tokens-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/PersistentOriginTrials/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/PersistentOriginTrials/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/PersistentOriginTrials/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Preferences
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/PreferredApps
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/README
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Safe Browsing Network/NetworkDataMigrated
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Safe Browsing Network/Safe Browsing Cookies
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Safe Browsing Network/Safe Browsing Cookies-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Secure Preferences
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Segmentation Platform/SegmentInfoDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Segmentation Platform/SegmentInfoDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Segmentation Platform/SegmentInfoDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Segmentation Platform/SignalDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Segmentation Platform/SignalDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Segmentation Platform/SignalDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Segmentation Platform/SignalStorageConfigDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Segmentation Platform/SignalStorageConfigDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Segmentation Platform/SignalStorageConfigDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/ServerCertificate
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/ServerCertificate-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Session Storage/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Session Storage/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Session Storage/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Session Storage/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Session Storage/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Sessions/Session_13426761350771419
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Sessions/Session_13426761964020755
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Sessions/Tabs_13426761350962271
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Sessions/Tabs_13426761964405529
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Shared Dictionary/cache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Shared Dictionary/cache/index-dir/the-real-index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Shared Dictionary/db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Shared Dictionary/db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/SharedStorage
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Shortcuts
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Shortcuts-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Site Characteristics Database/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Site Characteristics Database/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Site Characteristics Database/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Site Characteristics Database/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Site Characteristics Database/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Sync Data/LevelDB/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Sync Data/LevelDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Sync Data/LevelDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Sync Data/LevelDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Sync Data/LevelDB/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Top Sites
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Top Sites-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Web Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/Web Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/WebStorage/QuotaManager
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/WebStorage/QuotaManager-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/chrome_cart_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/chrome_cart_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/chrome_cart_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/commerce_subscription_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/commerce_subscription_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/commerce_subscription_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/discount_infos_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/discount_infos_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/discount_infos_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/discounts_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/discounts_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/discounts_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/engine_allowlist.bf
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/heavy_ad_intervention_opt_out.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/heavy_ad_intervention_opt_out.db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/parcel_tracking_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/parcel_tracking_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/parcel_tracking_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/shared_proto_db/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/shared_proto_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/shared_proto_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/shared_proto_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/shared_proto_db/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/shared_proto_db/metadata/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/shared_proto_db/metadata/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/shared_proto_db/metadata/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/shared_proto_db/metadata/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/shared_proto_db/metadata/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Default/trusted_vault.pb
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.db-wal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/GrShaderCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/GrShaderCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/GrShaderCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/GrShaderCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/GrShaderCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Last Browser
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Last Version
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Local State
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/ShaderCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/ShaderCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/ShaderCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/ShaderCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/ShaderCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/Variations
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/component_crx_cache/metadata.json
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/extensions_crx_cache/metadata.json
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/first_party_sets.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/first_party_sets.db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_2/segmentation_platform/ukm_db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Crashpad/metadata
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Crashpad/settings.dat
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Account Web Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Account Web Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Affiliation Database
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Affiliation Database-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/AutofillAiModelCache/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/AutofillAiModelCache/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/AutofillAiModelCache/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/AutofillStrikeDatabase/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/AutofillStrikeDatabase/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/AutofillStrikeDatabase/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/BookmarkMergedSurfaceOrdering
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/BudgetDatabase/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/BudgetDatabase/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/BudgetDatabase/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/ClientCertificates/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/ClientCertificates/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/ClientCertificates/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DIPS
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DawnGraphiteCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DawnGraphiteCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DawnGraphiteCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DawnGraphiteCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DawnGraphiteCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DawnWebGPUCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DawnWebGPUCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DawnWebGPUCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DawnWebGPUCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/DawnWebGPUCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension Rules/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension Rules/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension Rules/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension Scripts/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension Scripts/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension Scripts/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension State/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension State/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension State/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension State/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Extension State/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Favicons
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Favicons-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Feature Engagement Tracker/AvailabilityDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Feature Engagement Tracker/EventDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/000/t/.usage
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/000/t/00/00000000
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/000/t/Paths/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/000/t/Paths/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/000/t/Paths/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/000/t/Paths/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/000/t/Paths/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/Origins/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/Origins/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/Origins/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/Origins/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/File System/Origins/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/GCM Store/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/GCM Store/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/GCM Store/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/GCM Store/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/GCM Store/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/History
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/History-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/IndexedDB/https_chat.qwen.ai_0.indexeddb.leveldb/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Local Storage/leveldb/000005.ldb
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Local Storage/leveldb/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Local Storage/leveldb/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Local Storage/leveldb/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Local Storage/leveldb/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Local Storage/leveldb/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Login Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Login Data For Account
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Login Data For Account-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Login Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network Action Predictor
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network Action Predictor-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/Cookies
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/Cookies-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/Device Bound Sessions
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/Device Bound Sessions-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/Network Persistent State
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/NetworkDataMigrated
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/Reporting and NEL
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/Reporting and NEL-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/TransportSecurity
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/Trust Tokens
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Network/Trust Tokens-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/PersistentOriginTrials/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/PersistentOriginTrials/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/PersistentOriginTrials/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Preferences
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/PreferredApps
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/README
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Safe Browsing Network/NetworkDataMigrated
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Safe Browsing Network/Safe Browsing Cookies
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Safe Browsing Network/Safe Browsing Cookies-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Secure Preferences
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Segmentation Platform/SegmentInfoDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Segmentation Platform/SegmentInfoDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Segmentation Platform/SegmentInfoDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Segmentation Platform/SignalDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Segmentation Platform/SignalDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Segmentation Platform/SignalDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Segmentation Platform/SignalStorageConfigDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Segmentation Platform/SignalStorageConfigDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Segmentation Platform/SignalStorageConfigDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/ServerCertificate
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/ServerCertificate-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Session Storage/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Session Storage/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Session Storage/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Session Storage/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Session Storage/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Sessions/Session_13426761280316582
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Sessions/Session_13426761966056559
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Sessions/Tabs_13426761280531872
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Sessions/Tabs_13426761966287673
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Shared Dictionary/cache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Shared Dictionary/cache/index-dir/the-real-index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Shared Dictionary/db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Shared Dictionary/db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Shortcuts
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Shortcuts-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Site Characteristics Database/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Site Characteristics Database/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Site Characteristics Database/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Site Characteristics Database/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Site Characteristics Database/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Sync Data/LevelDB/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Sync Data/LevelDB/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Sync Data/LevelDB/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Sync Data/LevelDB/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Sync Data/LevelDB/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Top Sites
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Top Sites-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Web Data
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/Web Data-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/WebStorage/QuotaManager
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/WebStorage/QuotaManager-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/chrome_cart_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/chrome_cart_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/chrome_cart_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/commerce_subscription_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/commerce_subscription_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/commerce_subscription_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/discount_infos_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/discount_infos_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/discount_infos_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/discounts_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/discounts_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/discounts_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/engine_allowlist.bf
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/heavy_ad_intervention_opt_out.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/heavy_ad_intervention_opt_out.db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/parcel_tracking_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/parcel_tracking_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/parcel_tracking_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/shared_proto_db/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/shared_proto_db/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/shared_proto_db/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/shared_proto_db/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/shared_proto_db/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/shared_proto_db/metadata/CURRENT
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/shared_proto_db/metadata/LOCK
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/shared_proto_db/metadata/LOG
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/shared_proto_db/metadata/LOG.old
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/shared_proto_db/metadata/MANIFEST-000001
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Default/trusted_vault.pb
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.db-wal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/GPUPersistentCache/DawnGraphiteCache/WAYLUSJ7BONJ44JCR3QBYGU7DQX7EQ7H/cache.journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/GrShaderCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/GrShaderCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/GrShaderCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/GrShaderCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/GrShaderCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Last Browser
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Last Version
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Local State
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/ShaderCache/data_0
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/ShaderCache/data_1
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/ShaderCache/data_2
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/ShaderCache/data_3
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/ShaderCache/index
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/Variations
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/component_crx_cache/metadata.json
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/extensions_crx_cache/metadata.json
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/first_party_sets.db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/first_party_sets.db-journal
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/chrome_profile_3/segmentation_platform/ukm_db
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/login_setup.py
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/qwen_capa.py
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/qwen_linha.py
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/qwen_reply.py
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/qwen_reply_async.py
+ delete mode 100755 Kwai-Editor (backup: 2)/Playwright/qwen_titulo.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/__init__.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/baixar_video.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/checar_link.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/db.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/db.py.bak_orig
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/listener.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/log_utils.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/scripts/create_job.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/scripts/get_chat_id.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/scripts/send_file.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/scripts/send_message.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/scripts/simulate.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/scripts/test_token.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/telegram_utils.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/terminal_bot.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/worker.py
+ delete mode 100755 Kwai-Editor (backup: 2)/bot/worker.py.bak_orig
+ delete mode 100755 Kwai-Editor (backup: 2)/captura_qwen/README.txt
+ delete mode 100755 Kwai-Editor (backup: 2)/captura_qwen/captura_logs/events.jsonl
+ delete mode 100755 Kwai-Editor (backup: 2)/captura_qwen/captura_logs/snapshots/001_initial_load.html
+ delete mode 100755 Kwai-Editor (backup: 2)/captura_qwen/capturar.bat
+ delete mode 100755 Kwai-Editor (backup: 2)/captura_qwen/capturar_qwen.py
+ delete mode 100755 Kwai-Editor (backup: 2)/editar.bat
+ delete mode 100755 Kwai-Editor (backup: 2)/especificacao_layout_bot_telegram.md
+ delete mode 100755 Kwai-Editor (backup: 2)/executar_terminal.bat
+ delete mode 100755 Kwai-Editor (backup: 2)/fluxo.mmd
+ delete mode 100755 Kwai-Editor (backup: 2)/iniciar_servidores.bat
+ delete mode 100755 Kwai-Editor (backup: 2)/logs/listener_err.txt
+ delete mode 100755 Kwai-Editor (backup: 2)/logs/listener_out.txt
+ delete mode 100755 Kwai-Editor (backup: 2)/logs/worker_err.txt
+ delete mode 100755 Kwai-Editor (backup: 2)/logs/worker_out.txt
+ delete mode 100755 Kwai-Editor (backup: 2)/parar_servidores.bat
+ delete mode 100755 Kwai-Editor (backup: 2)/pipeline/__init__.py
+ delete mode 100755 Kwai-Editor (backup: 2)/pipeline/editor.py
+ delete mode 100755 Kwai-Editor (backup: 2)/pipeline/runner.py
+ delete mode 100755 Kwai-Editor (backup: 2)/pipeline/simple.py
+ delete mode 100755 Kwai-Editor (backup: 2)/pipeline/simple.py.bak_orig
+ delete mode 100755 Kwai-Editor (backup: 2)/requirements.txt
+ delete mode 100755 Kwai-Editor (backup: 2)/scripts/iniciar.bat
+ delete mode 100755 Kwai-Editor (backup: 2)/scripts/launcher.py
+ delete mode 100755 Kwai-Editor (backup: 2)/scripts/parar.bat
+ delete mode 100755 Kwai-Editor (backup: 2)/scripts/processar.bat
+ delete mode 100755 Kwai-Editor (backup: 2)/scripts/setup_profiles.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/__init__.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/colocar_linha.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/cortar_minuto.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/cortar_resolusao.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/cortar_video.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/display.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/gemini_analyzer.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/grid_utils.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/key_manager.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/renderizar.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/video_popup_linear.py
+ delete mode 100755 Kwai-Editor (backup: 2)/src/video_popup_linear.py.bak_original
+ delete mode 100755 Kwai-Editor (backup: 2)/tests/test_api_standalone.py
+ delete mode 100755 Kwai-Editor (backup: 2)/tests/test_key_debug.py
+ delete mode 100755 Kwai-Editor (backup: 2)/tests/test_model_cycling.py
+ delete mode 100755 Kwai-Editor (backup: 2)/tests/test_quick_check.py
+ delete mode 100755 Kwai-Editor (backup: 2)/tests/test_run_endtoend.py
+ delete mode 100755 Kwai-Editor (backup: 2)/tutorial_entrega_arquivos_telegram.md

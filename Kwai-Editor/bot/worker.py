@@ -253,12 +253,31 @@ def main():
     recover_processing_jobs()
     recover_pipeline_jobs()
 
+    # === KEEP AWAKE: impedir computador de dormir enquanto worker roda ===
+    # Se rodando via launcher, o launcher ja ativou KeepAwake.
+    # Se rodando standalone, ativamos aqui.
+    keep_awake = None
+    try:
+        sys.path.insert(0, str(BASE_DIR / "scripts"))
+        from keep_awake import KeepAwake, set_high_priority
+        keep_awake = KeepAwake(prevent_display_sleep=False)
+        keep_awake.enable()
+        log.info("KeepAwake: computador nao vai dormir enquanto worker rodar")
+        set_high_priority()
+        log.info("Prioridade do processo: ALTA")
+    except Exception as e:
+        log.warn(f"KeepAwake falhou (nao critico): {e}")
+
     if USE_PIPELINE:
         log.info(f"Worker iniciado em MODO PIPELINE (2 esteiras concorrentes, MAX_READY={MAX_READY_TO_RENDER})")
         run_pipeline_workers()
     else:
         log.info("Worker iniciado em MODO SEQUENCIAL (legado)")
         run_sequential_worker()
+
+    # Desativar KeepAwake ao sair
+    if keep_awake:
+        keep_awake.disable()
 
 
 def run_sequential_worker():

@@ -16,14 +16,14 @@ FINAL_SIZE = (720, 1274)
 DURATION_FALLBACK = 180
 MAX_DURATION = 180
 FPS = 30
-VIDEO_QUALITY = 18  # CRF: menor = maior qualidade (18 = visualmente sem perdas)
+VIDEO_QUALITY = 22  # CRF: menor = maior qualidade (22 = bom equilíbrio velocidade/qualidade)
 
 VIDEO_X, VIDEO_Y, VIDEO_W, VIDEO_H = 0, 108, 720, 540
 
 USE_BLURRED_BACKGROUND = True
 BLUR_RADIUS = 30
 BLUR_DOWNSAMPLE_WIDTH = 160
-ENCODER_PRESET = "medium"  # era "superfast" — trocado para medium: arquivo menor
+ENCODER_PRESET = "veryfast"  # muito mais rapido que medium, qualidade quase identica a olho nu
 
 # === Fase 1: pre-render do background blur ===
 USE_PRERENDERED_BG = True
@@ -355,6 +355,7 @@ def _composite_with_ffmpeg(video_path: str, bg_path: str, popup_path: str | None
         "-c:v", "libx264",
         "-preset", ENCODER_PRESET,
         "-crf", str(VIDEO_QUALITY),
+        "-threads", "0",  # Usar TODOS os núcleos da CPU
         "-pix_fmt", "yuv420p",
         "-movflags", "faststart",
         "-c:a", "aac",

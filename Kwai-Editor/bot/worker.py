@@ -401,10 +401,11 @@ def worker_prepare(stop_event):
             set_job_ready_to_render(job_id, prep_data)
             log.info(f"[A {job_id[:12]}] Pronto para render — prep_data salvo")
 
-            # Pausa de segurança: dar tempo para o Chrome liberar o perfil
-            # antes do próximo job tentar abrir outro Chrome.
-            # Isso evita conflitos de lockfile/perfil entre jobs consecutivos.
-            time.sleep(2)
+            # NOTA: Nao precisa mais de time.sleep() aqui.
+            # Cada job agora usa uma COPIA TEMPORARIA do chrome_profile,
+            # eliminando completamente conflitos de LOCK/perfil entre jobs.
+            # O close() do QwenReplyAsync garante deterministicamente que o
+            # Chrome morreu (via pgrep + SIGKILL) antes de remover a copia.
 
         except Exception as exc:
             log.error(f"[A] Erro na esteira prepare: {exc}")

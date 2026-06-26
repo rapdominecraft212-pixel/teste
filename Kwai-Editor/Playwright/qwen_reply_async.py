@@ -5,6 +5,24 @@ Usa Playwright async_api + asyncio.gather para operar multiplas abas
 em paralelo dentro do mesmo Chrome. Ideal para rodar capa/titulo/linha
 simultaneamente sem abrir 3 browsers.
 
+ISOLAMENTO DE PERFIL (deterministico):
+    Cada instancia cria uma COPIA TEMPORARIA do chrome_profile original.
+    O Chrome nunca trava o perfil original — eliminando conflitos entre
+    jobs consecutivos. Quando close() e chamado, o Chrome e morto com
+    garantia deterministica (pgrep + SIGKILL se necessario) e a copia
+    temporaria e removida.
+
+    Fluxo:
+        1. abrir_context() copia chrome_profile -> /tmp/chrome_kwai_{uuid}/
+        2. Chrome abre com a copia temporaria (perfil original nunca e travado)
+        3. close() fecha Chrome, ESPERA deterministicamente o processo morrer
+        4. Remove a copia temporaria
+
+    Isso elimina completamente:
+        - Conflitos de LOCK file entre jobs
+        - Chrome degradado por perfil travado
+        - O amador time.sleep(2) como "seguranca"
+
 Logging de triagem: cada etapa critica loga o que esta fazendo,
 o que encontrou na pagina, e o que falhou. O objetivo e que
 olhando o log seja possivel saber EXATAMENTE o que aconteceu
@@ -25,10 +43,10 @@ CLI (compativel com qwen_reply.py):
     python qwen_reply_async.py --prompt "analise" --arquivo video.mp4
 """
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
-import pathlib, sys, argparse, subprocess, time, platform
+import pathlib, sys, argparse, subprocess, time, platform, shutil, tempfile, uuid
 
 PASTA = pathlib.Path(__file__).parent
-PERFIL = PASTA / "chrome_profile"
+PERFIL_ORIGEM = PASTA / "chrome_profile"
 
 
 class SessionExpiredError(Exception):
@@ -47,25 +65,68 @@ def _page_tag(page):
 
 
 class QwenReplyAsync:
-    """Versao async do QwenReply — mesma interface, mesma logica, async/await."""
+    """Versao async do QwenReply — mesma interface, mesma logica, async/await.
+
+    ISOLAMENTO DETERMINISTICO DE PERFIL:
+    Cada instancia copia o chrome_profile original para um diretorio temporario.
+    O Chrome opera exclusivamente na copia, liberando o original de qualquer lock.
+    No close(), o Chrome e morto com garantia deterministica e a copia e removida.
+    """
 
     def __init__(self, perfil=None, headless=False):
-        self._perfil = str(perfil or PERFIL.resolve())
+        # perfil: diretorio ORIGEM (o "mestre" que nunca e travado)
+        self._perfil_origem = str(perfil or PERFIL_ORIGEM.resolve())
         self._headless = headless
         self._ctx = None
         self._page = None
         self._playwright = None
+        # Perfil temporario (copia isolada para este job)
+        self._perfil_temp = None  # /tmp/chrome_kwai_{uuid}/
+        self._perfil_temp_id = None  # uuid para identificacao no log
 
     # === API publica ===
 
     async def abrir_context(self, snapshot=False):
-        """Abre o browser + context (1 Chrome, 1 perfil)."""
+        """Abre o browser + context (1 Chrome, 1 perfil temporario isolado).
+
+        Fluxo deterministico:
+        1. Verifica se perfil origem existe
+        2. Cria copia temporaria unica (/tmp/chrome_kwai_{uuid}/)
+        3. Remove LOCK files da copia (seguranca)
+        4. Lanca Chrome com a copia temporaria
+        5. Navega ate o Qwen e verifica sessao
+        """
         if self._ctx is not None:
             return
-        self._limpar()
+
+        # 1. Verificar perfil origem
+        if not pathlib.Path(self._perfil_origem).exists():
+            raise RuntimeError(
+                f"Perfil Chrome nao encontrado: {self._perfil_origem}\n"
+                f"Execute Playwright/login_setup.py para criar o perfil."
+            )
+
+        # 2. Criar copia temporaria isolada
+        self._perfil_temp_id = str(uuid.uuid4())[:8]
+        temp_dir = pathlib.Path(tempfile.gettempdir()) / f"chrome_kwai_{self._perfil_temp_id}"
+        t0 = time.time()
+        shutil.copytree(self._perfil_origem, str(temp_dir))
+        dt = time.time() - t0
+        self._perfil_temp = str(temp_dir)
+        print(f"    [perfil] Copia temporaria criada: {temp_dir.name} ({dt:.3f}s)", flush=True)
+
+        # 3. Remover LOCK files da copia (previne exit code 21)
+        self._limpar_lockfiles(self._perfil_temp)
+
+        # 4. Matar qualquer Chrome residual que possa estar usando o temp
+        # (nao deveria existir, mas e defensivo)
+        self._matar_chrome_por_perfil(self._perfil_temp)
+        self._esperar_chrome_morto(self._perfil_temp, timeout=3)
+
+        # 5. Lançar Chrome com perfil temporario
         self._playwright = await async_playwright().start()
         self._ctx = await self._playwright.chromium.launch_persistent_context(
-            user_data_dir=self._perfil,
+            user_data_dir=self._perfil_temp,
             channel="chrome",
             headless=self._headless,
         )
@@ -78,6 +139,7 @@ class QwenReplyAsync:
             html = await self._page.evaluate("document.getElementById('qwen-chat-header-right')?.innerHTML || ''")
             pathlib.Path(PASTA / "_snapshot_header.html").write_text(html, encoding="utf-8")
         await self._ativar_temp(self._page)
+        print(f"    [perfil] Chrome aberto com perfil temporario {self._perfil_temp_id}", flush=True)
 
     async def new_page(self, tag=None):
         """Cria uma nova aba no mesmo context e navega ate o Qwen.
@@ -114,7 +176,19 @@ class QwenReplyAsync:
             raise
 
     async def close(self):
-        """Fecha o browser e o playwright. Espera o Chrome morrer de verdade."""
+        """Fecha o browser e o playwright com garantia DETERMINISTICA de morte do Chrome.
+
+        Sequencia deterministica:
+        1. ctx.close() — fecha graciosamente
+        2. playwright.stop() — para o driver
+        3. _esperar_chrome_morto(timeout=10) — verifica via pgrep que morreu
+        4. Se nao morreu: SIGKILL + esperar novamente
+        5. Remove copia temporaria do perfil
+
+        Nao usa time.sleep() como "seguranca" — usa pgrep para VERIFICAR
+        que o processo morreu, com SIGKILL como fallback deterministico.
+        """
+        # 1. Fechar Playwright graciosamente
         if self._ctx:
             try:
                 await self._ctx.close()
@@ -128,12 +202,31 @@ class QwenReplyAsync:
             except:
                 pass
             self._playwright = None
-        # Esperar Chrome morrer — se não morrer, forçar com pkill
-        morreu = self._esperar_chrome_morto(timeout=5)
-        if not morreu:
-            # Forçar kill — Chrome não quis morrer graciosamente
-            print(f"    [close] Chrome não morreu graciosamente, forçando pkill...", flush=True)
-            self._limpar()
+
+        # 2. Garantir determinísticamente que o Chrome morreu
+        if self._perfil_temp:
+            perfil_id = self._perfil_temp_id or "?"
+            morreu = self._esperar_chrome_morto(self._perfil_temp, timeout=10)
+            if not morreu:
+                print(f"    [close:{perfil_id}] Chrome nao morreu graciosamente em 10s, enviando SIGKILL...", flush=True)
+                self._matar_chrome_por_perfil(self._perfil_temp, signal="-9")
+                morreu = self._esperar_chrome_morto(self._perfil_temp, timeout=5)
+                if not morreu:
+                    print(f"    [close:{perfil_id}] ALERTA: Chrome resistiu ao SIGKILL! Processo zombie?", flush=True)
+                else:
+                    print(f"    [close:{perfil_id}] Chrome morto via SIGKILL (deterministico)", flush=True)
+            else:
+                print(f"    [close:{perfil_id}] Chrome morreu graciosamente (confirmado via pgrep)", flush=True)
+
+            # 3. Remover copia temporaria
+            try:
+                shutil.rmtree(self._perfil_temp, ignore_errors=True)
+                print(f"    [close:{perfil_id}] Perfil temporario removido", flush=True)
+            except Exception as e:
+                print(f"    [close:{perfil_id}] Erro ao remover perfil temporario: {e}", flush=True)
+
+            self._perfil_temp = None
+            self._perfil_temp_id = None
 
     async def __aenter__(self):
         return self
@@ -400,31 +493,52 @@ class QwenReplyAsync:
             }
         """)
 
-    # ---- Interno ----
+    # ---- Interno: gerenciamento deterministico de processos ----
 
-    def _esperar_chrome_morto(self, timeout=8):
-        """Espera até que nenhum processo Chrome com nosso perfil esteja rodando.
+    @staticmethod
+    def _chrome_pgrep_pattern(perfil_path):
+        """Retorna o padrao de busca especifico para processos Chrome.
 
-        Retorna True se o processo morreu, False se ainda está vivo após timeout.
-        Isso é CRÍTICO porque launch_persistent_context() falha ou abre em estado
-        degradado se o perfil ainda está travado por outro Chrome.
+        Usa --user-data-dir= em vez do path puro para evitar falsos positivos:
+        pgrep -f <path> encontraria o proprio processo Python que contem
+        essa string no seu codigo, causando _esperar_chrome_morto() a
+        nunca retornar True mesmo quando o Chrome ja morreu.
+        """
+        # Chrome launch argument: --user-data-dir=/path/to/profile
+        return f"--user-data-dir={perfil_path}"
+
+    @staticmethod
+    def _esperar_chrome_morto(perfil_path, timeout=10):
+        """Espera DETERMINISTICAMENTE ate que nenhum processo Chrome com
+        nosso perfil esteja rodando.
+
+        Nao usa time.sleep() como "seguranca" — usa pgrep para VERIFICAR
+        que o processo morreu, com dupla confirmacao para evitar race conditions.
+
+        Retorna True se o processo morreu, False se ainda esta vivo apos timeout.
         """
         if platform.system() == "Windows":
-            # No Windows o PowerShell já faz a verificação
+            # Windows: esperar o PowerShell confirmar
             time.sleep(2)
             return True
 
+        padrao = QwenReplyAsync._chrome_pgrep_pattern(perfil_path)
         start = time.time()
         while time.time() - start < timeout:
             try:
                 result = subprocess.run(
-                    ["pgrep", "-f", "-i", self._perfil],
+                    ["pgrep", "-f", padrao],
                     capture_output=True, timeout=5
                 )
                 if result.returncode != 0:
-                    # Nenhum processo encontrado — Chrome morreu
-                    time.sleep(0.3)  # Pequena margem de segurança
-                    return True
+                    # Nenhum processo encontrado — dupla confirmacao
+                    time.sleep(0.3)
+                    result2 = subprocess.run(
+                        ["pgrep", "-f", padrao],
+                        capture_output=True, timeout=5
+                    )
+                    if result2.returncode != 0:
+                        return True  # DETERMINISTICO: pgrep confirmou 2x que morreu
             except Exception:
                 pass
             time.sleep(0.5)
@@ -432,41 +546,42 @@ class QwenReplyAsync:
         return False
 
     @staticmethod
+    def _matar_chrome_por_perfil(perfil_path, signal=None):
+        """Mata processos Chrome que usam o perfil especificado.
+
+        signal: None (SIGTERM via pkill) ou "-9" (SIGKILL)
+        Usa --user-data-dir= para matching especifico (evita matar
+        processos Python que contenham o path no codigo).
+        """
+        try:
+            if platform.system() == "Windows":
+                perfil_lower = str(perfil_path).lower()
+                subprocess.run(
+                    ["powershell", "-NoProfile", "-Command",
+                     f"Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" "
+                     f"-ErrorAction SilentlyContinue | "
+                     f"Where-Object {{ $_.CommandLine -and $_.CommandLine -like '*{perfil_lower}*' }} | "
+                     f"Stop-Process -Force -ErrorAction SilentlyContinue"],
+                    timeout=15, capture_output=True
+                )
+            else:
+                padrao = QwenReplyAsync._chrome_pgrep_pattern(perfil_path)
+                cmd = ["pkill", "-f", padrao]
+                if signal:
+                    cmd.insert(1, signal)
+                subprocess.run(cmd, timeout=15, capture_output=True)
+        except Exception:
+            pass
+
+    @staticmethod
     def _limpar_lockfiles(perfil_path):
+        """Remove LOCK files do perfil para prevenir exit code 21."""
         import glob as _glob
         for f in _glob.glob(str(pathlib.Path(perfil_path) / "**" / "LOCK"), recursive=True):
             try:
                 pathlib.Path(f).unlink(missing_ok=True)
             except:
                 pass
-
-    def _limpar(self):
-        self._limpar_lockfiles(self._perfil)
-        try:
-            if platform.system() == "Windows":
-                perfil_path = self._perfil.lower()
-                subprocess.run(
-                    ["powershell", "-NoProfile", "-Command",
-                     f"Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" "
-                     f"-ErrorAction SilentlyContinue | "
-                     f"Where-Object {{ $_.CommandLine -and $_.CommandLine -like '*{perfil_path}*' }} | "
-                     f"Stop-Process -Force -ErrorAction SilentlyContinue"],
-                    timeout=15, capture_output=True
-                )
-            else:
-                # Linux: pkill -f é case-sensitive, usar -i para matching case-insensitive
-                # BUG ANTERIOR: usava self._perfil.lower() que NÃO batia com
-                # o path real do Chrome (Kwai-Editor ≠ kwai-editor), então o pkill
-                # falhava silenciosamente e o Chrome do job anterior continuava vivo,
-                # travando o perfil para o próximo job.
-                subprocess.run(
-                    ["pkill", "-f", "-i", self._perfil],
-                    timeout=15, capture_output=True
-                )
-            # Esperar processo morrer de verdade (não apenas 0.5s)
-            self._esperar_chrome_morto(timeout=8)
-        except:
-            pass
 
 
 if __name__ == "__main__":

@@ -124,12 +124,17 @@ class QwenReplyAsync:
         self._esperar_chrome_morto(self._perfil_temp, timeout=3)
 
         # 5. Lançar Chrome com perfil temporario
+        # Auto-detectar: channel="chrome" usa Google Chrome instalado no sistema,
+        # sem channel usa o Chromium embutido do Playwright (fallback para ambientes
+        # sem Google Chrome instalado, como servidores CI/Docker)
         self._playwright = await async_playwright().start()
-        self._ctx = await self._playwright.chromium.launch_persistent_context(
-            user_data_dir=self._perfil_temp,
-            channel="chrome",
-            headless=self._headless,
-        )
+        launch_kwargs = {
+            "user_data_dir": self._perfil_temp,
+            "headless": self._headless,
+        }
+        if pathlib.Path("/opt/google/chrome/chrome").exists() or pathlib.Path("/usr/bin/google-chrome").exists():
+            launch_kwargs["channel"] = "chrome"
+        self._ctx = await self._playwright.chromium.launch_persistent_context(**launch_kwargs)
         self._page = self._ctx.pages[0] if self._ctx.pages else await self._ctx.new_page()
         await self._page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=120000)
         await self._page.wait_for_selector("textarea", timeout=120000)
@@ -238,27 +243,48 @@ class QwenReplyAsync:
 
     @staticmethod
     async def _verificar_sessao(page):
-        login_selectors = [
-            'button:has-text("Login")',
-            'button:has-text("Log in")',
-            'button:has-text("Entrar")',
-            ".login-entry",
-            '[class*="login"]',
-            '[class*="sign-in"]',
-            '[class*="signin"]',
-        ]
-        for sel in login_selectors:
-            try:
-                el = await page.query_selector(sel)
-                if el and await el.is_visible():
-                    raise SessionExpiredError(
-                        "Sessao Qwen expirada — elemento de login detectado na pagina. "
-                        "Execute Playwright/login_setup.py para refazer o login."
-                    )
-            except SessionExpiredError:
-                raise
-            except:
-                pass
+        # Verificacao inteligente de sessao expirada:
+        # O Qwen mostra um modal "Welcome" com botoes "Log in", "Sign up",
+        # "Stay logged out" quando a sessao esta expirada. Esse modal
+        # BLOQUEIA todas as interacoes com a pagina (upload, send, etc.)
+        # ate ser fechado.
+        #
+        # Detectamos a sessao expirada pela presenca do Welcome modal.
+        # Se presente, tentamos clicar "Stay logged out" para poder continuar,
+        # mas isso so permite chat de texto — upload de arquivos exige login.
+        #
+        # Fluxo:
+        # 1. Se ha Welcome modal → sessao expirada
+        # 2. Tentar clicar "Stay logged out" (permite uso limitado)
+        # 3. Se o modal reaparece ao enviar → erro definitivo (precisa de login)
+
+        # Check for Welcome modal (session expired indicator)
+        overlay = await page.query_selector('.qwen-modal-overlay')
+        if overlay and await overlay.is_visible():
+            # Verificar se e o Welcome modal especificamente
+            welcome_title = await overlay.evaluate(
+                'el => el.querySelector("[class*=welcome-modal-title]")?.innerText || ""'
+            )
+            if "Welcome" in welcome_title or "welcome" in welcome_title.lower():
+                # Tentar clicar "Stay logged out" para fechar
+                stay_btn = await overlay.query_selector('button:has-text("Stay logged out")')
+                if stay_btn:
+                    print("    [sessao] Welcome modal detectado — clicando 'Stay logged out'...", flush=True)
+                    await stay_btn.click()
+                    await page.wait_for_timeout(2000)
+                    # Verificar se o modal foi embora
+                    overlay2 = await page.query_selector('.qwen-modal-overlay')
+                    if not overlay2 or not await overlay2.is_visible():
+                        print("    [sessao] Modal fechado — continuando sem login (upload pode falhar)", flush=True)
+                        return
+                    else:
+                        print("    [sessao] Modal persistiu apos 'Stay logged out'", flush=True)
+
+                # Se chegou aqui, nao conseguiu fechar o modal
+                raise SessionExpiredError(
+                    "Sessao Qwen expirada — Welcome modal bloqueando interacao. "
+                    "Execute Playwright/login_setup.py para refazer o login."
+                )
 
     @staticmethod
     async def _ativar_temp(page):
@@ -269,11 +295,65 @@ class QwenReplyAsync:
         await page.wait_for_timeout(500)
 
     @staticmethod
+    async def _dismiss_modal(page, tag="aba"):
+        """Remove o Welcome modal do Qwen se presente.
+
+        O Qwen mostra um modal 'Welcome' quando a sessao esta expirada.
+        Esse modal bloqueia TODAS as interacoes (upload, send, etc.)
+        com um overlay invisivel que intercepta pointer events.
+
+        Esta funcao tenta fechar o modal clicando 'Stay logged out'.
+        Se o modal nao pode ser fechado, levanta SessionExpiredError.
+
+        Deve ser chamada antes de acoes criticas (upload, send) para
+        garantir que o modal nao esta bloqueando a interacao.
+        """
+        try:
+            overlay = await page.query_selector('.qwen-modal-overlay')
+            if not overlay or not await overlay.is_visible():
+                return  # Nenhum modal, tudo OK
+
+            # Verificar se e o Welcome modal
+            welcome_title = await overlay.evaluate(
+                'el => el.querySelector("[class*=welcome-modal-title]")?.innerText || ""'
+            )
+            if not welcome_title:
+                # Modal generico — tentar remover via JS
+                await page.evaluate('document.querySelector(".qwen-modal-overlay")?.remove()')
+                print(f"    [{tag}] Modal generico removido via JS", flush=True)
+                return
+
+            # E o Welcome modal — tentar clicar "Stay logged out"
+            stay_btn = await overlay.query_selector('button:has-text("Stay logged out")')
+            if stay_btn:
+                print(f"    [{tag}] Welcome modal — clicando 'Stay logged out'...", flush=True)
+                await stay_btn.click()
+                await page.wait_for_timeout(2000)
+                # Verificar se sumiu
+                overlay2 = await page.query_selector('.qwen-modal-overlay')
+                if not overlay2 or not await overlay2.is_visible():
+                    return
+                # Nao sumiu — forcar remocao
+                await page.evaluate('document.querySelector(".qwen-modal-overlay")?.remove()')
+                print(f"    [{tag}] Welcome modal forcado via JS", flush=True)
+            else:
+                # Nao tem botao Stay logged out — forcar remocao
+                await page.evaluate('document.querySelector(".qwen-modal-overlay")?.remove()')
+                print(f"    [{tag}] Modal sem 'Stay logged out' removido via JS", flush=True)
+        except SessionExpiredError:
+            raise
+        except Exception as e:
+            print(f"    [{tag}] Erro ao remover modal: {e}", flush=True)
+
+    @staticmethod
     async def _upload_page(page, caminho, tag="aba"):
         """Upload de arquivo na aba. Loga cada etapa."""
         arquivo_nome = pathlib.Path(caminho).name
         arquivo_tamanho = pathlib.Path(caminho).stat().st_size
         print(f"    [{tag}] Upload iniciando: {arquivo_nome} ({arquivo_tamanho/1024:.0f}KB)", flush=True)
+
+        # Passo 0: garantir que nenhum modal esta bloqueando
+        await QwenReplyAsync._dismiss_modal(page, tag=tag)
 
         # Passo 1: clicar no botao de modo/upload
         try:
@@ -347,6 +427,9 @@ class QwenReplyAsync:
     async def _enviar_page(page, prompt, timeout, tag="aba"):
         """Envia o prompt e espera a resposta. Loga cada etapa da geracao."""
         prompt_preview = prompt[:40].replace('\n', ' ')
+
+        # Passo 0: garantir que nenhum modal esta bloqueando
+        await QwenReplyAsync._dismiss_modal(page, tag=tag)
 
         # Passo 1: preencher textarea
         try:

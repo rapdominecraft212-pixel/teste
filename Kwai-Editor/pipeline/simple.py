@@ -8,6 +8,7 @@ from Playwright import qwen_capa, qwen_titulo, qwen_linha
 from Playwright import qwen_capa_titulo
 from Playwright.qwen_reply import QwenReply
 from Playwright.qwen_reply_async import QwenReplyAsync
+from Playwright.qwen_account_pool import AccountPool, QwenAccount
 from src import colocar_linha
 import src.cortar_video as cortar_video
 import src.video_popup_linear as video_popup_linear
@@ -102,16 +103,138 @@ async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=300, t
         raise
 
 
-# === Preparar video — versao async (nucleo paralelo) ===
+# === Preparar video — versao async com AccountPool (novo) ===
+
+async def _ask_capa_titulo_direct(page, video_path, tag='capa+titulo', timeout=300):
+    """Envia prompt de capa+titulo diretamente via pagina do pool (sem QwenReplyAsync)."""
+    t0 = time_module.time()
+    log.info(f"  [{tag}] Enviando pergunta unificada + video...")
+    try:
+        # Upload
+        await QwenReplyAsync._upload_page(page, video_path, tag=tag)
+        # Enviar prompt
+        await QwenReplyAsync._enviar_page(page, qwen_capa_titulo.PROMPT_CAPA_TITULO, timeout, tag=tag)
+        # Esperar e extrair resposta
+        await QwenReplyAsync._esperar_e_extrair_resposta(page, tag=tag)
+        resultado = await QwenReplyAsync._ultima_resposta_page(page)
+        texto_capa, texto_titulo = qwen_capa_titulo._extrair_capa_titulo(resultado)
+        dt = time_module.time() - t0
+        log.info(f"  [{tag}] OK em {dt:.0f}s — Capa=\"{texto_capa}\" Titulo=\"{texto_titulo}\"")
+        return texto_capa, texto_titulo
+    except Exception as e:
+        dt = time_module.time() - t0
+        log.error(f"  [{tag}] FALHOU em {dt:.0f}s — {e}")
+        raise
+
+
+async def _perguntar_linha_direct(page, grid_path, cell_h, tag='linha', timeout=300, total_linhas=80):
+    """Envia prompt de linha diretamente via pagina do pool (sem QwenReplyAsync)."""
+    t0 = time_module.time()
+    log.info(f"  [{tag}] Enviando pergunta + imagem grid...")
+    try:
+        # Upload
+        await QwenReplyAsync._upload_page(page, grid_path, tag=tag)
+        # Enviar prompt
+        await QwenReplyAsync._enviar_page(page, qwen_linha.PROMPT_LINHA, timeout, tag=tag)
+        # Esperar e extrair resposta
+        await QwenReplyAsync._esperar_e_extrair_resposta(page, tag=tag)
+        texto = await QwenReplyAsync._ultima_resposta_page(page)
+        row_start, row_end = qwen_linha._extrair_linhas(texto, total_linhas=total_linhas)
+        y_start = int((row_start - 1) * cell_h)
+        y_end = int(row_end * cell_h)
+        dt = time_module.time() - t0
+        log.info(f"  [{tag}] OK em {dt:.0f}s — Linha_inicial={row_start} Linha_final={row_end} (y={y_start}-{y_end})")
+        return y_start, y_end
+    except Exception as e:
+        dt = time_module.time() - t0
+        log.error(f"  [{tag}] FALHOU em {dt:.0f}s — {e}")
+        raise
+
+
+async def preparar_video_async_with_accounts(job_id: str, video_path: str, chat_id: int,
+                                               conta_capa: QwenAccount,
+                                               conta_linha: QwenAccount) -> dict:
+    """Versao async que usa contas do pool (browsers ja abertos e logados).
+
+    Cada chamada (capa+titulo e linha) usa uma conta diferente,
+    rodando em PARALELO via asyncio.gather.
+    Login ja foi feito no warm_up do pool — zero overhead de login aqui.
+    """
+    video_name = Path(video_path).name
+    video_size = os.path.getsize(video_path)
+
+    # Prepara grid da linha (sync, rapido ~1s)
+    grid_info = _preparar_grid(video_path)
+    grid_path, cell_h, mid_frame_path = grid_info
+
+    page_capa = None
+    page_linha = None
+
+    try:
+        # Criar abas nos browsers das contas
+        page_capa = await conta_capa.new_page(tag=f'capa+titulo [{conta_capa.id}]')
+        page_linha = await conta_linha.new_page(tag=f'linha [{conta_linha.id}]')
+
+        log.info(f"[prep {job_id[:12]}] 2 contas + 2 abas PARALELO — "
+                 f"capa+titulo[{conta_capa.id}] + linha[{conta_linha.id}]")
+
+        resultados = await asyncio.gather(
+            _ask_capa_titulo_direct(page_capa, video_path, tag=f'capa+titulo [{conta_capa.id}]'),
+            _perguntar_linha_direct(page_linha, grid_path, cell_h, tag=f'linha [{conta_linha.id}]'),
+            return_exceptions=True,
+        )
+
+        resultado_ct = resultados[0]
+        resultado_linha = resultados[1]
+
+        if isinstance(resultado_ct, Exception):
+            log.error(f"  [capa+titulo] Excecao capturada: {resultado_ct}")
+            raise resultado_ct
+        if isinstance(resultado_linha, Exception):
+            log.error(f"  [linha] Excecao capturada: {resultado_linha}")
+            raise resultado_linha
+
+        (texto_capa, texto_titulo) = resultado_ct
+        (y1, y2) = resultado_linha
+
+    finally:
+        # Fechar abas (NAO fechar o browser/contexto!)
+        if page_capa:
+            try:
+                await conta_capa.close_page(page_capa)
+            except:
+                pass
+        if page_linha:
+            try:
+                await conta_linha.close_page(page_linha)
+            except:
+                pass
+        _limpar_grid_temp(grid_info)
+
+    log.info(f"[prep {job_id[:12]}] OK — capa=\"{texto_capa}\" corte_y={y1}-{y2}")
+
+    prep_data = {
+        "job_id": job_id,
+        "video_path": video_path,
+        "chat_id": chat_id,
+        "texto_capa": texto_capa,
+        "texto_titulo": texto_titulo,
+        "y1": int(y1),
+        "y2": int(y2),
+        "video_size": video_size,
+        "video_name": video_name,
+    }
+    return prep_data
+
+
+# === Preparar video — versao async LEGADA (sem pool) ===
 
 async def preparar_video_async(job_id: str, video_path: str, chat_id: int,
                                 parallel: bool = True) -> dict:
     """
-    Versao async: 1 Chrome + 3 abas, chamadas ao Qwen em PARALELO
-    via asyncio.gather. Usa Playwright async_api.
-
-    Se parallel=True: capa, titulo e linha rodam simultaneamente.
-    Se parallel=False: roda sequencialmente (fallback/debug).
+    Versao LEGADA: 1 Chrome + 2 abas, chamadas ao Qwen em PARALELO.
+    Nao usa o pool — cria e destrói browser a cada chamada.
+    Mantida para compatibilidade e modo standalone.
     """
     video_name = Path(video_path).name
     video_size = os.path.getsize(video_path)

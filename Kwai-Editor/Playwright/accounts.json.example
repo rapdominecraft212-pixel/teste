@@ -1,0 +1,26 @@
+[
+  {
+    "email": "conta1@gmail.com",
+    "password": "senha_da_conta_1"
+  },
+  {
+    "email": "conta2@gmail.com",
+    "password": "senha_da_conta_2"
+  },
+  {
+    "email": "conta3@gmail.com",
+    "password": "senha_da_conta_3"
+  },
+  {
+    "email": "conta4@gmail.com",
+    "password": "senha_da_conta_4"
+  },
+  {
+    "email": "conta5@gmail.com",
+    "password": "senha_da_conta_5"
+  },
+  {
+    "email": "conta6@gmail.com",
+    "password": "senha_da_conta_6"
+  }
+]

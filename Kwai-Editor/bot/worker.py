@@ -268,14 +268,35 @@ def main():
     except Exception as e:
         log.warn(f"KeepAwake falhou (nao critico): {e}")
 
+    # === ACCOUNT POOL: aquecer contas Qwen no startup ===
+    pool = None
     if USE_PIPELINE:
-        log.info(f"Worker iniciado em MODO PIPELINE (2 esteiras concorrentes, MAX_READY={MAX_READY_TO_RENDER})")
-        run_pipeline_workers()
+        try:
+            from Playwright.qwen_account_pool import AccountPool, load_accounts_config
+            accounts_config = load_accounts_config()
+            headless = os.environ.get("QWEN_HEADLESS", "True").lower() in ("true", "1", "yes")
+            log.info(f"Aquecendo {len(accounts_config)} contas Qwen (headless={headless})...")
+            pool = AccountPool.initialize(accounts_config, headless=headless)
+            log.info(f"Pool pronto! {pool.ready_count}/{pool.total_accounts} contas — "
+                     f"max {pool.max_concurrent_jobs} jobs simultaneos")
+        except FileNotFoundError as e:
+            log.warn(f"AccountPool: {e}")
+            log.warn("Rodando sem pool — modo legado (1 Chrome por job)")
+        except Exception as e:
+            log.error(f"AccountPool falhou: {e}")
+            log.warn("Rodando sem pool — modo legado (1 Chrome por job)")
+
+    if USE_PIPELINE:
+        log.info(f"Worker iniciado em MODO PIPELINE (MAX_READY={MAX_READY_TO_RENDER})")
+        run_pipeline_workers(pool=pool)
     else:
         log.info("Worker iniciado em MODO SEQUENCIAL (legado)")
         run_sequential_worker()
 
-    # Desativar KeepAwake ao sair
+    # Desligar pool e KeepAwake ao sair
+    if pool:
+        log.info("Desligando pool de contas...")
+        pool.shutdown()
     if keep_awake:
         keep_awake.disable()
 
@@ -300,37 +321,54 @@ def run_sequential_worker():
             time.sleep(30)
 
 
-def run_pipeline_workers():
-    """Modo pipeline: 2 threads concorrentes (esteira A + esteira B).
+def run_pipeline_workers(pool=None):
+    """Modo pipeline: N threads prepare + 1 thread render.
 
-    - Esteira A (worker_prepare): pega jobs queued, faz download + Qwen,
-      marca ready_to_render com prep_data
-    - Esteira B (worker_render): pega jobs ready_to_render, faz corte +
-      render + cleanup, marca ready
+    - Esteiras Prepare (N threads): pega jobs queued, faz download + Qwen,
+      marca ready_to_render com prep_data.
+      Se pool disponível, cada job usa 2 contas do pool (login já feito).
+      N = max_concurrent_jobs do pool, ou 1 se sem pool.
+    - Esteira Render (1 thread): pega jobs ready_to_render, faz corte +
+      render + cleanup, marca ready.
 
-    A esteira A respeita MAX_READY_TO_RENDER: se fila B estiver cheia,
-    A pausa até B consumir.
+    A esteira Prepare respeita MAX_READY_TO_RENDER: se fila render estiver
+    cheia, pausa.
     """
     stop_event = threading.Event()
 
-    thread_a = threading.Thread(
-        target=worker_prepare,
-        args=(stop_event,),
-        name="esteira_A",
-        daemon=True
-    )
-    thread_b = threading.Thread(
+    # Determinar numero de threads prepare
+    if pool:
+        num_prep = pool.max_concurrent_jobs
+        log.info(f"Pool ativo: {pool.total_accounts} contas, {num_prep} esteiras prepare")
+    else:
+        num_prep = 1
+        log.info("Sem pool: 1 esteira prepare (modo legado)")
+
+    # Criar N threads prepare
+    prep_threads = []
+    for i in range(num_prep):
+        t = threading.Thread(
+            target=worker_prepare,
+            args=(stop_event, pool),
+            name=f"esteira_prep_{i}",
+            daemon=True,
+        )
+        prep_threads.append(t)
+
+    # 1 thread render
+    render_thread = threading.Thread(
         target=worker_render,
         args=(stop_event,),
-        name="esteira_B",
-        daemon=True
+        name="esteira_render",
+        daemon=True,
     )
 
-    thread_a.start()
-    thread_b.start()
-
-    log.info(f"Esteira A (prepare) iniciada — TID={thread_a.native_id}")
-    log.info(f"Esteira B (render) iniciada — TID={thread_b.native_id}")
+    # Iniciar todas
+    for t in prep_threads:
+        t.start()
+        log.info(f"{t.name} iniciada — TID={t.native_id}")
+    render_thread.start()
+    log.info(f"{render_thread.name} iniciada — TID={render_thread.native_id}")
 
     try:
         # Main thread apenas aguarda Ctrl+C
@@ -341,18 +379,24 @@ def run_pipeline_workers():
         stop_event.set()
 
     # Aguardar esteiras terminarem (com timeout)
-    thread_a.join(timeout=10)
-    thread_b.join(timeout=10)
+    for t in prep_threads:
+        t.join(timeout=10)
+    render_thread.join(timeout=10)
     log.info("Worker encerrado.")
 
 
-def worker_prepare(stop_event):
-    """Esteira A: pega jobs queued, faz download + Qwen, marca ready_to_render.
+def worker_prepare(stop_event, pool=None):
+    """Esteira Prepare: pega jobs queued, faz download + Qwen, marca ready_to_render.
 
-    Respeita MAX_READY_TO_RENDER: se fila B está cheia, pausa.
-    Trata erros: se Qwen falha, marca job como failed e continua.
+    Se pool disponivel: cada job adquire 2 contas do pool (ja logadas),
+    usa os browsers persistentes, devolve contas ao pool quando termina.
+    Login acontece UMA UNICA VEZ no startup — zero overhead por job.
+
+    Se sem pool: usa modo legado (cria/destroi Chrome por job).
+
+    Respeita MAX_READY_TO_RENDER: se fila render esta cheia, pausa.
     """
-    from pipeline.simple import preparar_video
+    from pipeline.simple import preparar_video, preparar_video_async_with_accounts
 
     while not stop_event.is_set():
         try:
@@ -383,7 +427,7 @@ def worker_prepare(stop_event):
                 set_job_failed(job_id, f"url_invalid: {e}")
                 send_telegram_message(
                     chat_id,
-                    f"\u26a0\ufe0f Link inválido\n\n"
+                    f"\u26a0\ufe0f Link inv\u00e1lido\n\n"
                     f"Link: {url_display}\nMotivo: {str(e)[:200]}",
                 )
                 continue
@@ -403,15 +447,18 @@ def worker_prepare(stop_event):
             saved_path = result["saved_path"]
             log.info(f"[A {job_id[:12]}] Download OK: {saved_path}")
 
-            # [3/3] Qwen (preparar_video faz capa + título + linha)
+            # [3/3] Qwen — usar pool se disponivel, senao modo legado
             try:
-                prep_data = preparar_video(job_id, saved_path, chat_id)
+                if pool:
+                    prep_data = _prepare_with_pool(pool, job_id, saved_path, chat_id)
+                else:
+                    prep_data = preparar_video(job_id, saved_path, chat_id)
             except Exception as e:
                 set_job_failed(job_id, f"prepare_failed: {e}")
                 traceback.print_exc()
                 send_telegram_message(
                     chat_id,
-                    f"\u26a0\ufe0f Erro ao analisar vídeo\n\n"
+                    f"\u26a0\ufe0f Erro ao analisar v\u00eddeo\n\n"
                     f"Link: {url_display}\nMotivo: {str(e)[:200]}",
                 )
                 continue
@@ -420,16 +467,50 @@ def worker_prepare(stop_event):
             set_job_ready_to_render(job_id, prep_data)
             log.info(f"[A {job_id[:12]}] Pronto para render — prep_data salvo")
 
-            # NOTA: Nao precisa mais de time.sleep() aqui.
-            # Cada job agora usa uma COPIA TEMPORARIA do chrome_profile,
-            # eliminando completamente conflitos de LOCK/perfil entre jobs.
-            # O close() do QwenReplyAsync garante deterministicamente que o
-            # Chrome morreu (via pgrep + SIGKILL) antes de remover a copia.
-
         except Exception as exc:
             log.error(f"[A] Erro na esteira prepare: {exc}")
             traceback.print_exc()
             time.sleep(5)
+
+
+def _prepare_with_pool(pool, job_id, saved_path, chat_id):
+    """Prepara video usando 2 contas do pool. Thread-safe.
+
+    1. Adquire 2 contas (bloqueia ate ter disponivel)
+    2. Submete trabalho async no event loop do pool
+    3. Devolve contas ao pool quando termina
+
+    Login ja foi feito no startup — zero overhead aqui.
+    """
+    conta_capa = None
+    conta_linha = None
+
+    try:
+        # Adquirir 2 contas do pool (bloqueia se nao houver)
+        log.info(f"[A {job_id[:12]}] Adquirindo 2 contas do pool...")
+        conta_capa = pool.acquire(timeout=300)
+        conta_linha = pool.acquire(timeout=300)
+        log.info(f"[A {job_id[:12]}] Contas adquiridas: "
+                 f"capa={conta_capa.id} linha={conta_linha.id}")
+
+        # Rodar trabalho async no event loop do pool
+        prep_data = pool.run_async(
+            preparar_video_async_with_accounts(
+                job_id, saved_path, chat_id,
+                conta_capa=conta_capa,
+                conta_linha=conta_linha,
+            )
+        )
+        return prep_data
+
+    finally:
+        # SEMPRE devolver contas ao pool
+        if conta_capa:
+            pool.release(conta_capa)
+            log.info(f"[A {job_id[:12]}] Conta {conta_capa.id} devolvida ao pool")
+        if conta_linha:
+            pool.release(conta_linha)
+            log.info(f"[A {job_id[:12]}] Conta {conta_linha.id} devolvida ao pool")
 
 
 def worker_render(stop_event):

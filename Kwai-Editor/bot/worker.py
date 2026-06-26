@@ -401,6 +401,11 @@ def worker_prepare(stop_event):
             set_job_ready_to_render(job_id, prep_data)
             log.info(f"[A {job_id[:12]}] Pronto para render — prep_data salvo")
 
+            # Pausa de segurança: dar tempo para o Chrome liberar o perfil
+            # antes do próximo job tentar abrir outro Chrome.
+            # Isso evita conflitos de lockfile/perfil entre jobs consecutivos.
+            time.sleep(2)
+
         except Exception as exc:
             log.error(f"[A] Erro na esteira prepare: {exc}")
             traceback.print_exc()

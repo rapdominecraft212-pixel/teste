@@ -268,10 +268,10 @@ class QwenReply:
                 pass
 
     def _limpar(self):
-        perfil_path = self._perfil.lower()
         self._limpar_lockfiles(self._perfil)
         try:
             if platform.system() == "Windows":
+                perfil_path = self._perfil.lower()
                 subprocess.run(
                     ["powershell", "-NoProfile", "-Command",
                      f"Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" "
@@ -281,11 +281,13 @@ class QwenReply:
                     timeout=15, capture_output=True
                 )
             else:
+                # Linux: pkill -f é case-sensitive, usar -i para case-insensitive
+                # BUG ANTERIOR: self._perfil.lower() não batia com o path real do Chrome
                 subprocess.run(
-                    ["pkill", "-f", perfil_path],
+                    ["pkill", "-f", "-i", self._perfil],
                     timeout=15, capture_output=True
                 )
-            time.sleep(0.5)
+            time.sleep(1)
         except:
             pass
 

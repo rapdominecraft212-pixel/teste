@@ -114,7 +114,7 @@ class QwenReplyAsync:
             raise
 
     async def close(self):
-        """Fecha o browser e o playwright."""
+        """Fecha o browser e o playwright. Espera o Chrome morrer de verdade."""
         if self._ctx:
             try:
                 await self._ctx.close()
@@ -128,6 +128,12 @@ class QwenReplyAsync:
             except:
                 pass
             self._playwright = None
+        # Esperar Chrome morrer — se não morrer, forçar com pkill
+        morreu = self._esperar_chrome_morto(timeout=5)
+        if not morreu:
+            # Forçar kill — Chrome não quis morrer graciosamente
+            print(f"    [close] Chrome não morreu graciosamente, forçando pkill...", flush=True)
+            self._limpar()
 
     async def __aenter__(self):
         return self
@@ -396,6 +402,35 @@ class QwenReplyAsync:
 
     # ---- Interno ----
 
+    def _esperar_chrome_morto(self, timeout=8):
+        """Espera até que nenhum processo Chrome com nosso perfil esteja rodando.
+
+        Retorna True se o processo morreu, False se ainda está vivo após timeout.
+        Isso é CRÍTICO porque launch_persistent_context() falha ou abre em estado
+        degradado se o perfil ainda está travado por outro Chrome.
+        """
+        if platform.system() == "Windows":
+            # No Windows o PowerShell já faz a verificação
+            time.sleep(2)
+            return True
+
+        start = time.time()
+        while time.time() - start < timeout:
+            try:
+                result = subprocess.run(
+                    ["pgrep", "-f", "-i", self._perfil],
+                    capture_output=True, timeout=5
+                )
+                if result.returncode != 0:
+                    # Nenhum processo encontrado — Chrome morreu
+                    time.sleep(0.3)  # Pequena margem de segurança
+                    return True
+            except Exception:
+                pass
+            time.sleep(0.5)
+        # Timeout: processo ainda vivo
+        return False
+
     @staticmethod
     def _limpar_lockfiles(perfil_path):
         import glob as _glob
@@ -406,10 +441,10 @@ class QwenReplyAsync:
                 pass
 
     def _limpar(self):
-        perfil_path = self._perfil.lower()
         self._limpar_lockfiles(self._perfil)
         try:
             if platform.system() == "Windows":
+                perfil_path = self._perfil.lower()
                 subprocess.run(
                     ["powershell", "-NoProfile", "-Command",
                      f"Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" "
@@ -419,11 +454,17 @@ class QwenReplyAsync:
                     timeout=15, capture_output=True
                 )
             else:
+                # Linux: pkill -f é case-sensitive, usar -i para matching case-insensitive
+                # BUG ANTERIOR: usava self._perfil.lower() que NÃO batia com
+                # o path real do Chrome (Kwai-Editor ≠ kwai-editor), então o pkill
+                # falhava silenciosamente e o Chrome do job anterior continuava vivo,
+                # travando o perfil para o próximo job.
                 subprocess.run(
-                    ["pkill", "-f", perfil_path],
+                    ["pkill", "-f", "-i", self._perfil],
                     timeout=15, capture_output=True
                 )
-            time.sleep(0.5)
+            # Esperar processo morrer de verdade (não apenas 0.5s)
+            self._esperar_chrome_morto(timeout=8)
         except:
             pass
 

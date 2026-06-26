@@ -224,23 +224,44 @@ class QwenAccount:
         await page.wait_for_timeout(200)
         await submit_btn.click()
 
-        # Esperar redirecionar para a pagina principal
-        log.info(f"[{tag}] Aguardando redirecionamento...")
+        # Esperar resultado do login — sem depender de navigation events
+        log.info(f"[{tag}] Aguardando resultado do login...")
         try:
-            await page.wait_for_url("**/**", timeout=LOGIN_TIMEOUT * 1000)
-            # Verificar se estamos na pagina de chat (textarea presente)
+            # Abordagem simples: esperar o textarea aparecer (login bem sucedido)
+            # O Qwen redireciona via SPA — wait_for_url pode nao detectar
             await page.wait_for_selector("textarea", timeout=LOGIN_TIMEOUT * 1000)
             log.info(f"[{tag}] Login OK! Sessao estabelecida.")
         except Exception as e:
+            # Diagnostico: coletar informacoes da pagina para entender o que aconteceu
+            current_url = page.url
+            page_title = await page.title()
             # Verificar se ha mensagem de erro na pagina
+            error_text = None
             try:
-                error_el = await page.query_selector(".ant-message-error, .qwenchat-auth-pc-error, [class*='error']")
-                error_text = await error_el.inner_text() if error_el else "erro desconhecido"
-                raise RuntimeError(f"Login falhou: {error_text}") from e
-            except RuntimeError:
-                raise
+                error_el = await page.query_selector(
+                    ".ant-message-error, .qwenchat-auth-pc-error, "
+                    "[class*='error'], [class*='Error'], .ant-form-item-explain-error"
+                )
+                if error_el:
+                    error_text = await error_el.inner_text()
             except:
-                raise RuntimeError(f"Login falhou: timeout esperando pagina de chat") from e
+                pass
+
+            # Verificar se permaneceu na pagina de login
+            is_auth_page = "/auth" in current_url
+
+            if error_text:
+                msg = f"Login falhou: {error_text}"
+            elif is_auth_page:
+                msg = (f"Login falhou: permaneceu na pagina de auth. "
+                       f"URL={current_url}, title={page_title}. "
+                       f"Possivel causa: email/senha incorretos ou conta nao registrada")
+            else:
+                msg = (f"Login falhou: redirecionou mas textarea nao encontrada. "
+                       f"URL={current_url}, title={page_title}")
+
+            log.error(f"[{tag}] {msg}")
+            raise RuntimeError(msg) from e
 
     # ─── Paginas de trabalho ──────────────────────────────────────────
 
@@ -543,16 +564,39 @@ class AccountPool:
         self._loop.run_forever()
 
     async def _warm_all(self):
-        """Faz login em todas as contas em paralelo."""
-        log.info(f"[pool] Aquecendo {len(self._accounts)} contas em paralelo...")
+        """Faz login em todas as contas com stagger para evitar rate-limiting.
 
-        results = await asyncio.gather(
-            *[acc.warm_up() for acc in self._accounts],
-            return_exceptions=True,
-        )
+        Em vez de 7 logins simultaneos (que pode trigger anti-bot),
+        lança em batches de 3 com 2s de pausa entre batches.
+        """
+        BATCH_SIZE = 3
+        STAGGER_DELAY = 2  # segundos entre batches
+
+        log.info(f"[pool] Aquecendo {len(self._accounts)} contas "
+                 f"(batches de {BATCH_SIZE}, {STAGGER_DELAY}s entre batches)...")
+
+        results_map = {}
+
+        for batch_start in range(0, len(self._accounts), BATCH_SIZE):
+            batch = self._accounts[batch_start:batch_start + BATCH_SIZE]
+            batch_num = batch_start // BATCH_SIZE + 1
+
+            if batch_start > 0:
+                log.info(f"[pool] Pausa de {STAGGER_DELAY}s antes do batch {batch_num}...")
+                await asyncio.sleep(STAGGER_DELAY)
+
+            log.info(f"[pool] Batch {batch_num}: {', '.join(a.id for a in batch)}")
+            batch_results = await asyncio.gather(
+                *[acc.warm_up() for acc in batch],
+                return_exceptions=True,
+            )
+
+            for acc, result in zip(batch, batch_results):
+                results_map[acc.id] = result
 
         # Colocar contas prontas na fila disponivel
-        for acc, result in zip(self._accounts, results):
+        for acc in self._accounts:
+            result = results_map.get(acc.id)
             if isinstance(result, Exception):
                 log.error(f"[pool] Conta {acc.id} falhou: {result}")
                 acc.state = "error"

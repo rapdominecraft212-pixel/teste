@@ -492,6 +492,7 @@ def _prepare_with_pool(pool, job_id, saved_path, chat_id):
 
     Login ja foi feito no startup — zero overhead aqui.
     """
+    from pipeline.simple import preparar_video_async_with_accounts
     conta_capa = None
     conta_linha = None
 

@@ -82,7 +82,7 @@ async def _ask_capa_titulo_log(qr, page, video_path, timeout=300):
         raise
 
 
-async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=300):
+async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=300, total_linhas=80):
     """Versao com logging de _perguntar_linha_async."""
     t0 = time_module.time()
     log.info(f"  [linha] Enviando pergunta + imagem grid...")
@@ -90,7 +90,7 @@ async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=300):
         await qr.ask_on_page(page, qwen_linha.PROMPT_LINHA, arquivo=grid_path, timeout=timeout, tag='linha')
         texto = await QwenReplyAsync._ultima_resposta_page(page)
 
-        row_start, row_end = qwen_linha._extrair_linhas(texto)
+        row_start, row_end = qwen_linha._extrair_linhas(texto, total_linhas=total_linhas)
         y_start = int((row_start - 1) * cell_h)
         y_end = int(row_end * cell_h)
         dt = time_module.time() - t0
@@ -131,14 +131,29 @@ async def preparar_video_async(job_id: str, video_path: str, chat_id: int,
 
         if parallel:
             log.info(f"[prep {job_id[:12]}] 1 Chrome + 2 abas PARALELO — capa+titulo + linha...")
-            (texto_capa, texto_titulo), (y1, y2) = await asyncio.gather(
+            # return_exceptions=True: se uma aba falhar, nao derruba a outra
+            resultados = await asyncio.gather(
                 _ask_capa_titulo_log(qr, page_capa_titulo, video_path, timeout=300),
-                _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=300),
+                _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=300, total_linhas=80),
+                return_exceptions=True,
             )
+            # Processar resultados individualmente
+            resultado_ct = resultados[0]  # capa+titulo
+            resultado_linha = resultados[1]  # linha
+
+            if isinstance(resultado_ct, Exception):
+                log.error(f"  [capa+titulo] Excecao capturada: {resultado_ct}")
+                raise resultado_ct
+            if isinstance(resultado_linha, Exception):
+                log.error(f"  [linha] Excecao capturada: {resultado_linha}")
+                raise resultado_linha
+
+            (texto_capa, texto_titulo) = resultado_ct
+            (y1, y2) = resultado_linha
         else:
             log.info(f"[prep {job_id[:12]}] 1 Chrome + 2 abas SEQUENCIAL")
             texto_capa, texto_titulo = await _ask_capa_titulo_log(qr, page_capa_titulo, video_path, timeout=300)
-            y1, y2 = await _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=300)
+            y1, y2 = await _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=300, total_linhas=80)
     finally:
         await qr.close()
         _limpar_grid_temp(grid_info)

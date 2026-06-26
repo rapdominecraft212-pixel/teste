@@ -1,5 +1,6 @@
 import sys
 import subprocess
+import time
 from pathlib import Path
 
 TIMEOUT_DOWNLOAD = 300
@@ -40,9 +41,17 @@ def baixar(url, usuario_id, basedir=None):
         url,
     ]
 
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT_DOWNLOAD)
-    if r.returncode != 0:
-        raise RuntimeError(f"Falha ao baixar vídeo: {r.stderr.strip() or 'erro desconhecido'}")
+    # Retry: Windows Defender pode bloquear o rename do .temp (WinError 32)
+    last_err = ""
+    for attempt in range(3):
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT_DOWNLOAD)
+        if r.returncode != 0:
+            last_err = r.stderr.strip() or 'erro desconhecido'
+            if "WinError 32" in last_err or "being used by another process" in last_err:
+                time.sleep(3)
+                continue
+            raise RuntimeError(f"Falha ao baixar vídeo: {last_err}")
+        break
 
     saved_path = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
     if not saved_path or not Path(saved_path).exists():

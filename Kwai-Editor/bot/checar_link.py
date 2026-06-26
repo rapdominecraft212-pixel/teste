@@ -40,8 +40,15 @@ def _buscar_padrao(texto, padrao):
 
 def _extrair_url(texto, inicio_padrao, fim_padrao):
     resto = texto[fim_padrao:]
-    fim_url = resto.find(" ")
-    id_video = resto[:fim_url].strip() if fim_url != -1 else resto.strip()
+    # Procurar o primeiro separador: espaco, quebra de linha ou fim do texto
+    # O Kwai compartilha com texto apos o link (ex: "https://k.kwai.com/p/ABC\nVenha")
+    # Precisamos cortar na quebra de linha, nao incluir o texto seguinte na URL
+    fim_url = len(resto)
+    for sep in (" ", "\n", "\r", "\t"):
+        pos = resto.find(sep)
+        if pos != -1 and pos < fim_url:
+            fim_url = pos
+    id_video = resto[:fim_url].strip()
     if not id_video:
         raise RuntimeError(
             "Link inválido: não foi possível extrair o ID do vídeo após o padrão."

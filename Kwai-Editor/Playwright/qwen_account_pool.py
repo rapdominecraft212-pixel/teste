@@ -219,9 +219,32 @@ class QwenAccount:
             self._main_page = self._ctx.pages[0] if self._ctx.pages else await self._ctx.new_page()
 
             # === Restaurar sessão (NOVO) ===
+            # IMPORTANTE: usar wait_until="commit" + timeout 90s porque:
+            # - 3 Chormes simultâneos em CPU i3-2120 + SPA pesada do Qwen
+            #   não conseguem carregar DOM em 30s
+            # - "commit" dispara assim que HTML é recebido (não precisa esperar JS)
+            # - Cookies/storage podem ser injetados antes do JS carregar completamente
             log.info(f"[{tag}] Navegando para Qwen e injetando sessão...")
-            await self._main_page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=30000)
-            await self._main_page.wait_for_timeout(1000)
+            goto_ok = False
+            for goto_attempt in range(3):
+                try:
+                    await self._main_page.goto(
+                        "https://chat.qwen.ai/",
+                        wait_until="commit",
+                        timeout=90000,
+                    )
+                    goto_ok = True
+                    break
+                except Exception as goto_err:
+                    log.warn(f"[{tag}] goto tentativa {goto_attempt+1}/3 falhou: {goto_err}")
+                    if goto_attempt < 2:
+                        await asyncio.sleep(2)
+            if not goto_ok:
+                raise RuntimeError(
+                    f"goto https://chat.qwen.ai/ falhou após 3 tentativas — "
+                    f"verifique conexão com internet ou reduza MAX_PARALLEL_JOBS no .env"
+                )
+            await self._main_page.wait_for_timeout(2000)
 
             # Injetar cookies + localStorage + IndexedDB
             ok = await restaurar_sessao(self._ctx, self._main_page, sessao)
@@ -230,9 +253,17 @@ class QwenAccount:
                 self.state = "error"
                 raise RuntimeError(f"Falha ao restaurar sessão de {self.id}")
 
-            # Recarregar para aplicar cookies
-            await self._main_page.reload(wait_until="domcontentloaded", timeout=30000)
-            await self._main_page.wait_for_timeout(2000)
+            # Recarregar para aplicar cookies — mesmo padrão (commit + timeout 90s + retry)
+            log.info(f"[{tag}] Recarregando para aplicar sessão...")
+            for reload_attempt in range(3):
+                try:
+                    await self._main_page.reload(wait_until="commit", timeout=90000)
+                    break
+                except Exception as reload_err:
+                    log.warn(f"[{tag}] reload tentativa {reload_attempt+1}/3 falhou: {reload_err}")
+                    if reload_attempt < 2:
+                        await asyncio.sleep(2)
+            await self._main_page.wait_for_timeout(3000)
 
             # Verificar se sessão é válida
             if await sessao_eh_valida(self._main_page, timeout_sec=10):
@@ -659,12 +690,14 @@ class AccountPool:
         self._loop.run_forever()
 
     async def _warm_all(self):
-        """Faz login em todas as contas com stagger para evitar rate-limiting.
+        """Restaura sessão de todas as contas com stagger para evitar sobrecarga de CPU.
 
-        Em vez de 7 logins simultaneos (que pode trigger anti-bot),
-        lança em batches de 3 com 2s de pausa entre batches.
+        Em vez de 7 Chormes simultâneos (saturando i3-2120 e dando timeout em goto),
+        lança em batches de 2 com 2s de pausa entre batches.
         """
-        BATCH_SIZE = 3
+        # BATCH_SIZE=2 (era 3) — i3-2120 não aguenta 3 Chormes pesados simultâneos
+        # sem timeout em goto de SPA pesada como Qwen
+        BATCH_SIZE = 2
         STAGGER_DELAY = 2  # segundos entre batches
 
         log.info(f"[pool] Aquecendo {len(self._accounts)} contas "

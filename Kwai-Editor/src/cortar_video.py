@@ -125,14 +125,20 @@ def cortar_video(input_path: str, y1: int, y2: int, output_dir: str = "cortado")
         if new_h <= 0:
             raise ValueError(f"Altura de corte invalida: {new_h}px (y1={y1}, y2={y2}, H={H})")
 
+        # Preset ultrafast (era veryfast) — corte é intermediário, vai ser
+        # re-encodeado no composite. ultrafast é 2-3x mais rápido em i3-2120.
+        # -threads 0 (auto, usa todos disponíveis) em vez de 2 hardcoded.
+        # O corte é síncrono por job — não há paralelismo de 2 cortes simultâneos
+        # (corte é seguido de composite, e composite é quem roda em paralelo).
+        threads_corte = os.environ.get("FFMPEG_THREADS_CORTE", "0")  # 0 = auto
         cmd = [
             "ffmpeg", "-y",
             "-i", input_path,
             "-vf", f"crop=iw:{new_h}:0:{y1}",
             "-c:v", "libx264",
-            "-preset", "veryfast",
+            "-preset", "ultrafast",
             "-crf", "23",
-            "-threads", "2",  # Limitado para renders paralelos
+            "-threads", threads_corte,
             "-c:a", "copy",
             output_path,
         ]
@@ -141,8 +147,17 @@ def cortar_video(input_path: str, y1: int, y2: int, output_dir: str = "cortado")
                  f"(crop y={y1}-{y2}) cmd={' '.join(cmd[:6])}...")
 
         # FFmpeg com timer + captura de stderr para metricas
+        # Timeout aumentado de 120s para 600s (10 min) — vídeo de 180s em i3-2120
+        # com paralelismo pode demorar 2-5 min só para cortar. 120s era insuficiente.
         t_ffmpeg = time.perf_counter()
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        except subprocess.TimeoutExpired:
+            # Logar stderr parcial antes de falhar
+            log.error(f"[cortar] [ffmpeg] TIMEOUT após 600s — video muito longo ou CPU saturada")
+            log.error(f"[cortar] [ffmpeg] Considere: reduzir MAX_PARALLEL_JOBS, "
+                      f"aumentar FFMPEG_THREADS_PER_RENDER, ou usar preset ultrafast")
+            raise
         dt_ffmpeg = time.perf_counter() - t_ffmpeg
 
         if result.returncode != 0:
@@ -158,18 +173,22 @@ def cortar_video(input_path: str, y1: int, y2: int, output_dir: str = "cortado")
                  f"time={metricas.get('time_sec', '?')}s "
                  f"in={input_size_mb:.1f}MB out={output_size_mb:.1f}MB")
 
-        # Anomaly detectors
+        # Anomaly detectors — limiares calibrados para vídeo de até 180s + i3-2120
         speed = metricas.get("speed")
-        if speed is not None and speed < 1.0:
-            log.warn(f"[cortar] [ffmpeg] ANOMALIA speed={speed}x < 1.0x "
-                     f"(mais lento que realtime) — CPU bound em i3-2120? "
-                     f"considere -preset ultrafast ou -threads 4")
-        if dt_ffmpeg > 30:
-            log.warn(f"[cortar] [ffmpeg] ANOMALIA corte demorou {dt_ffmpeg:.2f}s "
-                     f"para video de {input_size_mb:.1f}MB — acima do esperado (30s)")
-        if dt_ffmpeg > 100:
-            log.warn(f"[cortar] [ffmpeg] ANOMALIA CRITICA dt={dt_ffmpeg:.2f}s "
-                     f"proximo do timeout 120s — reduzir paralelismo ou video muito longo")
+        if speed is not None and speed < 0.5:
+            log.warn(f"[cortar] [ffmpeg] ANOMALIA speed={speed}x < 0.5x "
+                     f"(muito lento) — CPU bound em i3-2120? "
+                     f"considere reduzir MAX_PARALLEL_JOBS ou usar -preset ultrafast")
+        # Calcular razão tempo_real/tempo_video (idealmente >1.0 = mais rápido que realtime)
+        time_sec = metricas.get("time_sec")
+        if time_sec and time_sec > 10:
+            ratio = dt_ffmpeg / time_sec
+            if ratio > 2.0:
+                log.warn(f"[cortar] [ffmpeg] ANOMALIA corte demorou {dt_ffmpeg:.1f}s para "
+                         f"video de {time_sec:.1f}s (ratio={ratio:.2f}x) — acima do esperado")
+        if dt_ffmpeg > 300:
+            log.warn(f"[cortar] [ffmpeg] ANOMALIA CRITICA dt={dt_ffmpeg:.2f}s — "
+                     f"considere reduzir MAX_PARALLEL_JOBS no .env")
 
         dt_total = time.perf_counter() - t_start
         log.info(f"[cortar] [done] dt_total={dt_total:.2f}s "

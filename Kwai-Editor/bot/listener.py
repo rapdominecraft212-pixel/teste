@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import secrets
+import threading
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
@@ -29,6 +30,11 @@ if not TOKEN:
 
 session = requests.Session()
 session.headers.update({"Connection": "keep-alive"})
+
+# Rastrear threads de validação por chat — quando o usuário clica "Concluído",
+# esperamos as threads terminarem antes de fazer flush_pending_jobs.
+_validation_threads = {}  # chat_id -> [thread, ...]
+_validation_lock = threading.Lock()
 
 MENU_KEYBOARD = {
     "keyboard": [
@@ -98,6 +104,14 @@ def handle_collecting_link(chat_id, text):
     if text == "\u2705 Conclu\u00eddo" or lower == "sair":
         set_user_state(chat_id, "idle")
 
+        # Esperar threads de validação terminarem antes de fazer flush.
+        # Isso garante que todos os links enviados tenham seus jobs criados
+        # como 'pending' antes de transitá-los para 'queued'.
+        with _validation_lock:
+            threads = _validation_threads.pop(chat_id, [])
+        for t in threads:
+            t.join(timeout=30)  # Max 30s esperando validação
+
         # GATE: libera os jobs 'pending' deste chat para o worker processar.
         # Antes desta chamada o worker nao via os jobs (status='pending');
         # apos esta chamada eles viram 'queued' e o worker os pega em <1s.
@@ -156,27 +170,40 @@ def handle_collecting_link(chat_id, text):
         show_main_menu(chat_id)
         return
 
-    try:
-        resultado = validar_link(raw)
-    except RuntimeError as e:
-        send_telegram_message(
-            chat_id,
-            f"\u26a0\ufe0f <b>Link inv\u00e1lido</b>\n\n{escape_html(e)}\n\n"
-            "Formatos aceitos:\n"
-            "  \u2022 https://k.kwai.com/p/...\n"
-            "  \u2022 https://www.kwai.com/video/...",
-            parse_mode="HTML"
-        )
-        return
+    # Validar link em background — NÃO bloquear o listener!
+    # A validação (yt-dlp probe) pode levar 5-30s, e durante esse tempo
+    # o listener não processaria outras mensagens. Rodando em thread,
+    # o listener fica livre para responder outros usuários.
+    def _validate_and_create():
+        try:
+            resultado = validar_link(raw)
+        except RuntimeError as e:
+            send_telegram_message(
+                chat_id,
+                f"\u26a0\ufe0f <b>Link inv\u00e1lido</b>\n\n{escape_html(e)}\n\n"
+                "Formatos aceitos:\n"
+                "  \u2022 https://k.kwai.com/p/...\n"
+                "  \u2022 https://www.kwai.com/video/...",
+                parse_mode="HTML"
+            )
+            return
 
-    job_id = secrets.token_urlsafe(16)
-    # IMPORTANTE: criar como 'pending' (nao 'queued') — o worker NAO ve jobs
-    # pending. O job so vira 'queued' (e portanto visivel ao worker) quando o
-    # usuario clicar em 'Concluido', via flush_pending_jobs(chat_id).
-    create_pending_job(job_id, chat_id, resultado["clean_url"])
-    # Sem mensagem de confirmacao por link — silencio = sucesso. A contagem
-    # aparece apenas UMA vez, no resumo apos clicar em 'Concluido'. Mensagens
-    # de erro (link invalido) continuam aparecendo normalmente.
+        job_id = secrets.token_urlsafe(16)
+        # IMPORTANTE: criar como 'pending' (nao 'queued') — o worker NAO ve jobs
+        # pending. O job so vira 'queued' (e portanto visivel ao worker) quando o
+        # usuario clicar em 'Concluido', via flush_pending_jobs(chat_id).
+        create_pending_job(job_id, chat_id, resultado["clean_url"])
+        # Sem mensagem de confirmacao por link — silencio = sucesso. A contagem
+        # aparece apenas UMA vez, no resumo apos clicar em 'Concluido'. Mensagens
+        # de erro (link invalido) continuam aparecendo normalmente.
+
+    t = threading.Thread(target=_validate_and_create, daemon=True)
+    t.start()
+    # Rastrear thread para esperar quando usuário clicar "Concluído"
+    with _validation_lock:
+        if chat_id not in _validation_threads:
+            _validation_threads[chat_id] = []
+        _validation_threads[chat_id].append(t)
 
 
 def handle_check_videos(chat_id):

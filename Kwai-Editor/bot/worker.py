@@ -11,7 +11,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from db import (
     init_db, get_job, get_next_queued_job, set_job_processing, set_job_ready, set_job_failed,
-    count_processing, recover_processing_jobs,
+    count_processing, count_active, recover_processing_jobs,
     # Fase 2: novos estados e funções do pipeline paralelo
     set_job_preparing, set_job_ready_to_render, set_job_rendering,
     get_preparation_data, get_next_ready_to_render_job, acquire_ready_to_render_job,
@@ -87,12 +87,13 @@ def get_queued_jobs_round_robin():
 
 
 def _make_progress_callback(chat_id, url_display):
-    THROTTLE_SEC = 10
+    THROTTLE_SEC = 30  # Aumentado de 10s para 30s — menos spam
     last_time = [0.0]
     last_pct = [-1]
 
     def callback(pct):
         now = time.monotonic()
+        # Só enviar progresso a cada 30s E quando completar 100%
         if pct == 100 or (pct != last_pct[0] and now - last_time[0] >= THROTTLE_SEC):
             last_time[0] = now
             last_pct[0] = pct
@@ -246,7 +247,7 @@ def process_job(job):
     ):
         log.warn(f"[{job_id[:12]}] Notificacao de video pronto falhou (video salvo em disco)")
 
-    remaining = count_processing(chat_id)
+    remaining = count_active(chat_id)
     if remaining == 0:
         send_telegram_message(
             chat_id,
@@ -464,24 +465,23 @@ def worker_prepare(stop_event, pool=None):
 
             log.info(f"[A {job_id[:12]}] Pegou job — chat={chat_id}")
 
-            # Marcar como preparing
-            set_job_preparing(job_id)
+            # get_next_queued_job() já marcou como 'preparing' atomicamente
+            # Não precisamos chamar set_job_preparing() separadamente
 
-            # [1/3] Validar URL
-            try:
-                resultado = validar_link(raw_input)
-            except Exception as e:
-                set_job_failed(job_id, f"url_invalid: {e}")
-                send_telegram_message(
-                    chat_id,
-                    f"\u26a0\ufe0f Link inv\u00e1lido\n\n"
-                    f"Link: {url_display}\nMotivo: {str(e)[:200]}",
-                )
-                continue
+            # Notificar usuário que o processamento começou (1 mensagem só!)
+            send_telegram_message(
+                chat_id,
+                f"\U0001f504 <b>Processando seu v\u00eddeo...</b>\n\n"
+                f"Link: <code>{escape_html(url_display)}</code>\n\n"
+                "Baixando e analisando com IA.",
+                parse_mode="HTML"
+            )
 
-            # [2/3] Download
+            # [1/3] Download — o link JÁ foi validado pelo listener,
+            # raw_input JÁ é o clean_url. Não precisamos re-validar.
+            # Se o link estiver quebrado, o download vai falhar naturalmente.
             try:
-                result = baixar_video(resultado["clean_url"], chat_id)
+                result = baixar_video(raw_input, chat_id)
             except Exception as e:
                 set_job_failed(job_id, f"download_failed: {e}")
                 send_telegram_message(
@@ -494,7 +494,7 @@ def worker_prepare(stop_event, pool=None):
             saved_path = result["saved_path"]
             log.info(f"[A {job_id[:12]}] Download OK: {saved_path}")
 
-            # [3/3] Qwen — usar pool se disponivel, senao modo legado
+            # [2/3] Qwen — usar pool se disponivel, senao modo legado
             try:
                 if pool:
                     prep_data = _prepare_with_pool(pool, job_id, saved_path, chat_id)
@@ -536,8 +536,8 @@ def _prepare_with_pool(pool, job_id, saved_path, chat_id):
     try:
         # Adquirir 2 contas do pool (bloqueia se nao houver)
         log.info(f"[A {job_id[:12]}] Adquirindo 2 contas do pool...")
-        conta_capa = pool.acquire(timeout=300)
-        conta_linha = pool.acquire(timeout=300)
+        conta_capa = pool.acquire(timeout=60)
+        conta_linha = pool.acquire(timeout=60)
         log.info(f"[A {job_id[:12]}] Contas adquiridas: "
                  f"capa={conta_capa.id} linha={conta_linha.id}")
 
@@ -627,7 +627,10 @@ def worker_render(stop_event, render_idx=0):
             )
 
             # Verificar se fila do chat está concluída
-            remaining = count_processing(chat_id)
+            # count_active() conta apenas jobs que ainda estão sendo processados
+            # (queued, preparing, ready_to_render, rendering) — NÃO conta 'pending'
+            # que ainda nem foram confirmados pelo usuário.
+            remaining = count_active(chat_id)
             if remaining == 0:
                 send_telegram_message(
                     chat_id,

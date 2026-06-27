@@ -64,7 +64,7 @@ def _limpar_grid_temp(grid_info):
 
 # === Async: wrappers com logging detalhado por aba ===
 
-async def _ask_capa_titulo_log(qr, page, video_path, timeout=300):
+async def _ask_capa_titulo_log(qr, page, video_path, timeout=120):
     """Envia o prompt unificado de capa+titulo e extrai os dois textos."""
     t0 = time_module.time()
     log.info(f"  [capa+titulo] Enviando pergunta unificada + video...")
@@ -83,7 +83,7 @@ async def _ask_capa_titulo_log(qr, page, video_path, timeout=300):
         raise
 
 
-async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=300, total_linhas=80):
+async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=120, total_linhas=80):
     """Versao com logging de _perguntar_linha_async."""
     t0 = time_module.time()
     log.info(f"  [linha] Enviando pergunta + imagem grid...")
@@ -105,7 +105,7 @@ async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=300, t
 
 # === Preparar video — versao async com AccountPool (novo) ===
 
-async def _ask_capa_titulo_direct(page, video_path, tag='capa+titulo', timeout=300):
+async def _ask_capa_titulo_direct(page, video_path, tag='capa+titulo', timeout=120):
     """Envia prompt de capa+titulo diretamente via pagina do pool (sem QwenReplyAsync)."""
     t0 = time_module.time()
     log.info(f"  [{tag}] Enviando pergunta unificada + video...")
@@ -127,7 +127,7 @@ async def _ask_capa_titulo_direct(page, video_path, tag='capa+titulo', timeout=3
         raise
 
 
-async def _perguntar_linha_direct(page, grid_path, cell_h, tag='linha', timeout=300, total_linhas=80):
+async def _perguntar_linha_direct(page, grid_path, cell_h, tag='linha', timeout=120, total_linhas=80):
     """Envia prompt de linha diretamente via pagina do pool (sem QwenReplyAsync)."""
     t0 = time_module.time()
     log.info(f"  [{tag}] Enviando pergunta + imagem grid...")
@@ -256,8 +256,8 @@ async def preparar_video_async(job_id: str, video_path: str, chat_id: int,
             log.info(f"[prep {job_id[:12]}] 1 Chrome + 2 abas PARALELO — capa+titulo + linha...")
             # return_exceptions=True: se uma aba falhar, nao derruba a outra
             resultados = await asyncio.gather(
-                _ask_capa_titulo_log(qr, page_capa_titulo, video_path, timeout=300),
-                _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=300, total_linhas=80),
+                _ask_capa_titulo_log(qr, page_capa_titulo, video_path, timeout=120),
+                _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=120, total_linhas=80),
                 return_exceptions=True,
             )
             # Processar resultados individualmente
@@ -275,8 +275,8 @@ async def preparar_video_async(job_id: str, video_path: str, chat_id: int,
             (y1, y2) = resultado_linha
         else:
             log.info(f"[prep {job_id[:12]}] 1 Chrome + 2 abas SEQUENCIAL")
-            texto_capa, texto_titulo = await _ask_capa_titulo_log(qr, page_capa_titulo, video_path, timeout=300)
-            y1, y2 = await _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=300, total_linhas=80)
+            texto_capa, texto_titulo = await _ask_capa_titulo_log(qr, page_capa_titulo, video_path, timeout=120)
+            y1, y2 = await _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=120, total_linhas=80)
     finally:
         await qr.close()
         _limpar_grid_temp(grid_info)

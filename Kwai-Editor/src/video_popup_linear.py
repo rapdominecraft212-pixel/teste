@@ -3,6 +3,7 @@ import proglog
 import subprocess
 import tempfile
 import hashlib
+import time as time_module
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -536,12 +537,77 @@ def _composite_with_ffmpeg(video_path: str, bg_path: str, popup_path: str | None
         "-movflags", "faststart",
         "-c:a", "aac",
         "-shortest",
+        "-progress", "pipe:2",  # Escrever progresso em stderr
         output_path,
     ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-    if result.returncode != 0:
-        raise RuntimeError(f"ffmpeg composite falhou: {result.stderr[-500:]}")
+    # Usar Popen para capturar progresso em tempo real via stderr
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    # Monitorar progresso via stderr (FFmpeg -progress escreve "out_time_ms=NNN")
+    last_reported_pct = -1
+
+    def _try_parse_progress(text):
+        """Tenta extrair o tempo processado do texto stderr."""
+        nonlocal last_reported_pct
+        if not on_render_progress:
+            return
+        # -progress mode escreve: out_time_ms=12345678 (microseconds)
+        for key in ("out_time_ms=", "out_time="):
+            idx = text.rfind(key)
+            if idx >= 0:
+                try:
+                    val_str = text[idx + len(key):].split("\n")[0].strip()
+                    if key == "out_time_ms=":
+                        current_time = int(val_str) / 1_000_000  # microseconds -> seconds
+                    else:
+                        # out_time=HH:MM:SS.UUUUUU
+                        parts = val_str.split(":")
+                        current_time = float(parts[0]) * 3600 + float(parts[1]) * 60 + float(parts[2])
+                    pct = min(100, int(current_time / duration * 100))
+                    if pct != last_reported_pct and pct >= 0:
+                        last_reported_pct = pct
+                        on_render_progress(pct)
+                except (ValueError, IndexError):
+                    pass
+                break
+
+    try:
+        # Timeout total para o processo
+        deadline = time_module.time() + 300  # 5 min max
+        while process.poll() is None and time_module.time() < deadline:
+            # Ler stderr disponível sem bloquear
+            try:
+                chunk = process.stderr.read1(4096) if hasattr(process.stderr, 'read1') else b""
+                if chunk:
+                    text = chunk.decode("utf-8", errors="replace")
+                    if "out_time" in text:
+                        _try_parse_progress(text)
+                else:
+                    time_module.sleep(0.5)
+            except Exception:
+                time_module.sleep(0.5)
+
+        # Se ainda rodando, matar
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=10)
+            raise RuntimeError("ffmpeg composite timeout (300s)")
+
+    except Exception as e:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=10)
+        raise
+
+    # Ler stderr restante
+    remaining_err = process.stderr.read().decode("utf-8", errors="replace") if process.stderr else ""
+    if process.returncode != 0:
+        raise RuntimeError(f"ffmpeg composite falhou: {remaining_err[-500:]}")
 
     return output_path
 
@@ -746,7 +812,7 @@ def criar_video(
             codec="libx264",
             preset=ENCODER_PRESET,
             audio_codec="aac",
-            threads=4,
+            threads=int(_ffmpeg_threads()) if _ffmpeg_threads() != "0" else 4,
             logger=render_logger,
             ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "faststart", "-crf", str(VIDEO_QUALITY), "-vf", "setsar=1:1"],
         )

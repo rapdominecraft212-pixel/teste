@@ -270,6 +270,20 @@ def count_processing(chat_id):
         return row["c"] if row else 0
 
 
+def count_active(chat_id):
+    """Conta jobs que ainda precisam ser processados (não terminaram).
+    Usado para verificar se a fila do chat foi concluída.
+    Diferente de count_processing(), esta função NÃO conta 'pending'
+    (jobs que ainda nem foram confirmados pelo usuário)."""
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) as c FROM jobs WHERE chat_id = ? AND status IN "
+            "('queued', 'processing', 'preparing', 'ready_to_render', 'rendering')",
+            (chat_id,)
+        ).fetchone()
+        return row["c"] if row else 0
+
+
 def count_failed(chat_id):
     with get_conn() as conn:
         row = conn.execute(
@@ -280,11 +294,36 @@ def count_failed(chat_id):
 
 
 def get_next_queued_job():
-    with get_conn() as conn:
+    """Pega próximo job 'queued' e marca como 'preparing' atomicamente.
+
+    Thread-safe: usa BEGIN IMMEDIATE para garantir que múltiplas threads
+    prepare não pegam o mesmo job. Retorna dict com status='preparing' ou None.
+    """
+    now = utc_now()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
             "SELECT * FROM jobs WHERE status = 'queued' ORDER BY chat_id, created_at ASC LIMIT 1"
         ).fetchone()
-    return dict(row) if row else None
+        if row:
+            job_id = row["job_id"]
+            conn.execute(
+                "UPDATE jobs SET status = 'preparing', updated_at = ? WHERE job_id = ?",
+                (now, job_id)
+            )
+            # Re-read para retornar com status atualizado
+            row = conn.execute(
+                "SELECT * FROM jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
+        conn.commit()
+        return dict(row) if row else None
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def set_job_processing(job_id):

@@ -143,15 +143,25 @@ class QwenAccount:
         log.info(f"[{tag}] Aquecendo — restaurando sessão persistida...")
 
         # Importar módulo de sessão (lazy import para evitar dependência circular)
+        # Usar import absoluto com prefixo Playwright. para funcionar independente
+        # do cwd (terminal_bot.py só adiciona PROJECT_ROOT ao sys.path, não Playwright/)
         try:
-            from qwen_session import (
+            from Playwright.qwen_session import (
                 carregar_sessao, sessao_existe, restaurar_sessao,
                 sessao_eh_valida, bem_vindo_modal_visivel, get_session_path
             )
         except ImportError:
-            log.error(f"[{tag}] Módulo qwen_session não encontrado!")
-            self.state = "error"
-            raise RuntimeError("qwen_session.py não encontrado em Playwright/")
+            # Fallback: tentar import direto (caso Playwright/ esteja no sys.path)
+            try:
+                from qwen_session import (
+                    carregar_sessao, sessao_existe, restaurar_sessao,
+                    sessao_eh_valida, bem_vindo_modal_visivel, get_session_path
+                )
+            except ImportError:
+                log.error(f"[{tag}] Módulo qwen_session não encontrado!")
+                log.error(f"[{tag}]    sys.path: {sys.path}")
+                self.state = "error"
+                raise RuntimeError("qwen_session.py não encontrado em Playwright/")
 
         # Verificar que sessão existe
         if not sessao_existe(self.id):

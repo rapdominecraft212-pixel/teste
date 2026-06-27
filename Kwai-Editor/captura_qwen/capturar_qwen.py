@@ -81,7 +81,7 @@ def encontrar_chrome_profile():
     for path in busca_inicio.rglob("chrome_profile"):
         if path.is_dir() and "video-editor" in str(path).lower():
             # Verifica se o parent tem estrutura do projeto
-            if (path.parent.parent / "Playwright" / "qwen_reply.py").exists() or \
+            if (path.parent.parent / "Playwright" / "qwen_reply_async.py").exists() or \
                (path.parent.parent / "capturar_qwen.py").exists():
                 return path
 

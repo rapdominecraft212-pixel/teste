@@ -4,12 +4,10 @@ import shutil
 import asyncio
 import time as time_module
 from pathlib import Path
-from Playwright import qwen_capa, qwen_titulo, qwen_linha
+from Playwright import qwen_linha
 from Playwright import qwen_capa_titulo
-from Playwright.qwen_reply import QwenReply
 from Playwright.qwen_reply_async import QwenReplyAsync
 from Playwright.qwen_account_pool import AccountPool, QwenAccount
-from src import colocar_linha
 import src.cortar_video as cortar_video
 import src.video_popup_linear as video_popup_linear
 from bot.log_utils import log
@@ -60,47 +58,6 @@ def _limpar_grid_temp(grid_info):
                 os.remove(p)
             except:
                 pass
-
-
-# === Async: wrappers com logging detalhado por aba ===
-
-async def _ask_capa_titulo_log(qr, page, video_path, timeout=120):
-    """Envia o prompt unificado de capa+titulo e extrai os dois textos."""
-    t0 = time_module.time()
-    log.info(f"  [capa+titulo] Enviando pergunta unificada + video...")
-    try:
-        resultado = await qr.ask_on_page(
-            page, qwen_capa_titulo.PROMPT_CAPA_TITULO,
-            arquivo=video_path, timeout=timeout, tag='capa+titulo'
-        )
-        texto_capa, texto_titulo = qwen_capa_titulo._extrair_capa_titulo(resultado)
-        dt = time_module.time() - t0
-        log.info(f"  [capa+titulo] OK em {dt:.0f}s — Capa=\"{texto_capa}\" Titulo=\"{texto_titulo}\"")
-        return texto_capa, texto_titulo
-    except Exception as e:
-        dt = time_module.time() - t0
-        log.error(f"  [capa+titulo] FALHOU em {dt:.0f}s — {e}")
-        raise
-
-
-async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=120, total_linhas=80):
-    """Versao com logging de _perguntar_linha_async."""
-    t0 = time_module.time()
-    log.info(f"  [linha] Enviando pergunta + imagem grid...")
-    try:
-        # ask_on_page ja retorna o texto extraido (com retry interno)
-        texto = await qr.ask_on_page(page, qwen_linha.PROMPT_LINHA, arquivo=grid_path, timeout=timeout, tag='linha')
-
-        row_start, row_end = qwen_linha._extrair_linhas(texto, total_linhas=total_linhas)
-        y_start = int((row_start - 1) * cell_h)
-        y_end = int(row_end * cell_h)
-        dt = time_module.time() - t0
-        log.info(f"  [linha] OK em {dt:.0f}s — Linha_inicial={row_start} Linha_final={row_end} (y={y_start}-{y_end})")
-        return y_start, y_end
-    except Exception as e:
-        dt = time_module.time() - t0
-        log.error(f"  [linha] FALHOU em {dt:.0f}s — {e}")
-        raise
 
 
 # === Preparar video — versao async com AccountPool (novo) ===
@@ -296,139 +253,6 @@ async def preparar_video_async_with_accounts(job_id: str, video_path: str, chat_
     return prep_data
 
 
-# === Preparar video — versao async LEGADA (sem pool) ===
-
-async def preparar_video_async(job_id: str, video_path: str, chat_id: int,
-                                parallel: bool = True) -> dict:
-    """
-    Versao LEGADA: 1 Chrome + 2 abas, chamadas ao Qwen em PARALELO.
-    Nao usa o pool — cria e destrói browser a cada chamada.
-    Mantida para compatibilidade e modo standalone.
-    """
-    video_name = Path(video_path).name
-    video_size = os.path.getsize(video_path)
-
-    texto_capa = texto_titulo = None
-    y1 = y2 = None
-
-    # Prepara grid da linha ANTES do gather (sync, rapido ~1s)
-    grid_info = _preparar_grid(video_path)
-    grid_path, cell_h, mid_frame_path = grid_info
-
-    qr = QwenReplyAsync(headless=True)
-    try:
-        await qr.abrir_context()
-        page_capa_titulo = await qr.new_page(tag='capa+titulo')
-        page_linha = await qr.new_page(tag='linha')
-
-        if parallel:
-            log.info(f"[prep {job_id[:12]}] 1 Chrome + 2 abas PARALELO — capa+titulo + linha...")
-            # return_exceptions=True: se uma aba falhar, nao derruba a outra
-            resultados = await asyncio.gather(
-                _ask_capa_titulo_log(qr, page_capa_titulo, video_path, timeout=120),
-                _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=120, total_linhas=80),
-                return_exceptions=True,
-            )
-            # Processar resultados individualmente
-            resultado_ct = resultados[0]  # capa+titulo
-            resultado_linha = resultados[1]  # linha
-
-            if isinstance(resultado_ct, Exception):
-                log.error(f"  [capa+titulo] Excecao capturada: {resultado_ct}")
-                raise resultado_ct
-            if isinstance(resultado_linha, Exception):
-                log.error(f"  [linha] Excecao capturada: {resultado_linha}")
-                raise resultado_linha
-
-            (texto_capa, texto_titulo) = resultado_ct
-            (y1, y2) = resultado_linha
-        else:
-            log.info(f"[prep {job_id[:12]}] 1 Chrome + 2 abas SEQUENCIAL")
-            texto_capa, texto_titulo = await _ask_capa_titulo_log(qr, page_capa_titulo, video_path, timeout=120)
-            y1, y2 = await _perguntar_linha_async_log(qr, page_linha, grid_path, cell_h, timeout=120, total_linhas=80)
-    finally:
-        await qr.close()
-        _limpar_grid_temp(grid_info)
-
-    log.info(f"[prep {job_id[:12]}] OK — capa=\"{texto_capa}\" corte_y={y1}-{y2}")
-
-    prep_data = {
-        "job_id": job_id,
-        "video_path": video_path,
-        "chat_id": chat_id,
-        "texto_capa": texto_capa,
-        "texto_titulo": texto_titulo,
-        "y1": int(y1),
-        "y2": int(y2),
-        "video_size": video_size,
-        "video_name": video_name,
-    }
-    return prep_data
-
-
-# === Preparar video — wrapper sync (interface compativel) ===
-
-def preparar_video(job_id: str, video_path: str, chat_id: int,
-                   parallel: bool = True) -> dict:
-    """
-    Wrapper sync — mesma interface de sempre.
-    Por dentro, roda async com Playwright async_api para paralelizar
-    as 3 chamadas ao Qwen.
-
-    Chamadas existentes (worker.py, main) nao precisam mudar nada:
-        prep_data = preparar_video(job_id, path, chat_id)
-    """
-    return asyncio.run(preparar_video_async(job_id, video_path, chat_id, parallel=parallel))
-
-
-# === Legado: versao sync pura (backup / debug) ===
-
-def _exec_linha_ask(qr, page, video_path):
-    """Versao sync legada — mantida para compatibilidade."""
-    from Playwright import qwen_linha as _ql
-    from Playwright.qwen_reply import QwenReply as _QR
-    from src.grid_utils import criar_grid_imagem
-    import tempfile
-    from PIL import Image
-    from moviepy import VideoFileClip
-    import os as _os
-
-    mid_frame_path = None
-    grid_path = None
-    try:
-        with VideoFileClip(video_path) as clip:
-            mid_frame = clip.duration / 2
-            frame_np = clip.get_frame(mid_frame)
-            frame = Image.fromarray(frame_np)
-
-        tmp_dir = Path(tempfile.gettempdir())
-        uid = _os.path.basename(video_path).replace(".", "_")
-        mid_frame_path = str(tmp_dir / f"frame_linha_{uid}.jpg")
-        grid_path = str(tmp_dir / f"grid_linha_{uid}.jpg")
-        frame.save(mid_frame_path, quality=95)
-        _, _, cell_h = criar_grid_imagem(mid_frame_path, grid_path)
-
-        qr.ask_on_page(page, _ql.PROMPT_LINHA, arquivo=grid_path, timeout=180)
-        texto = _QR._ultima_resposta_page(page)
-
-        import re
-        match = re.search(r"Linha_inicial\s*=\s*(\d+)[\s\S]*?Linha_final\s*=\s*(\d+)", texto.strip(), re.IGNORECASE)
-        if not match:
-            raise ValueError(f"Nao foi possivel interpretar a resposta do Qwen: {texto[:500]}")
-        row_start = int(match.group(1))
-        row_end = int(match.group(2))
-        y_start = int((row_start - 1) * cell_h)
-        y_end = int(row_end * cell_h)
-        return y_start, y_end
-    finally:
-        for p in [mid_frame_path, grid_path]:
-            if p:
-                try:
-                    _os.remove(p)
-                except:
-                    pass
-
-
 # === Renderizar video (nao muda) ===
 
 def renderizar_video(prep_data: dict,
@@ -492,11 +316,21 @@ def renderizar_video(prep_data: dict,
     return final_path
 
 
-# === Pipeline principal (nao muda) ===
+# === Pipeline principal (moderno — usa AccountPool) ===
 
 def processar_video(video_path: str, chat_id: int, timings: dict | None = None,
-                    on_render_progress=None, parallel=True,
-                    job_id: str = "standalone") -> str:
+                    on_render_progress=None,
+                    job_id: str = "standalone",
+                    pool=None) -> str:
+    """Pipeline principal moderno.
+
+    Se `pool` (AccountPool) for passado: usa preparar_video_async_with_accounts.
+    Se `pool` for None: cria um pool temporário para este vídeo (overhead de
+    login, mas mantém compatibilidade com chamadas standalone).
+
+    O parâmetro antigo `parallel` foi removido — paralelização é responsabilidade
+    do AccountPool (que mantém múltiplas contas logadas em paralelo).
+    """
     video_name = Path(video_path).name
     video_size = os.path.getsize(video_path)
     log.info(f"Pipeline iniciado — {video_name} ({video_size/1024/1024:.1f}MB) chat={chat_id} job={job_id[:12]}")
@@ -504,7 +338,54 @@ def processar_video(video_path: str, chat_id: int, timings: dict | None = None,
 
     log.info(f"[1/2] Preparando (Qwen)...")
     log.start_timer("prep")
-    prep_data = preparar_video(job_id, video_path, chat_id, parallel=parallel)
+    if pool is not None:
+        # Pool externo (worker.py em modo pipeline) — usa contas persistentes
+        conta_capa = pool.acquire(timeout=60)
+        try:
+            conta_linha = pool.acquire(timeout=60)
+        except Exception:
+            pool.release(conta_capa)
+            raise
+        try:
+            prep_data = pool.run_async(
+                preparar_video_async_with_accounts(
+                    job_id, video_path, chat_id,
+                    conta_capa=conta_capa,
+                    conta_linha=conta_linha,
+                )
+            )
+        finally:
+            pool.release(conta_capa)
+            pool.release(conta_linha)
+    else:
+        # Modo standalone: cria pool temporário para este vídeo
+        log.warn(f"[prep {job_id[:12]}] pool=None — criando pool temporário "
+                 f"(overhead de login ~30-60s esperado)")
+        from Playwright.qwen_account_pool import AccountPool, load_accounts_config
+        accounts_config = load_accounts_config()
+        if len(accounts_config) < 2:
+            raise RuntimeError(
+                f"AccountPool requer 2+ contas em Playwright/accounts.json. "
+                f"Encontrado: {len(accounts_config)}. "
+                f"Não há fallback legado — adicione contas ou use worker.py."
+            )
+        temp_pool = AccountPool.initialize(accounts_config, headless=True)
+        try:
+            conta_capa = temp_pool.acquire(timeout=60)
+            conta_linha = temp_pool.acquire(timeout=60)
+            try:
+                prep_data = temp_pool.run_async(
+                    preparar_video_async_with_accounts(
+                        job_id, video_path, chat_id,
+                        conta_capa=conta_capa,
+                        conta_linha=conta_linha,
+                    )
+                )
+            finally:
+                temp_pool.release(conta_capa)
+                temp_pool.release(conta_linha)
+        finally:
+            temp_pool.shutdown()
     log.info(f"[1/2] Preparacao OK {log.timer_info('prep')}")
 
     log.info(f"[2/2] Renderizando...")
@@ -518,6 +399,7 @@ def processar_video(video_path: str, chat_id: int, timings: dict | None = None,
 
 
 def main():
+    """Entry point CLI — usa AccountPool (moderno)."""
     upload_base = BASE_DIR / "data" / "upload"
     if not upload_base.exists():
         print("Nenhum video encontrado (data/upload/ nao existe)")
@@ -537,17 +419,29 @@ def main():
         sys.exit(1)
 
     print(f"Videos encontrados: {len(videos)}")
+
+    # Inicializa pool uma única vez (login todas as contas)
+    from Playwright.qwen_account_pool import AccountPool, load_accounts_config
+    accounts_config = load_accounts_config()
+    if len(accounts_config) < 2:
+        print(f"ERRO: AccountPool requer 2+ contas em Playwright/accounts.json. Encontrado: {len(accounts_config)}")
+        sys.exit(1)
+    print(f"Aquecendo {len(accounts_config)} contas Qwen...")
+    pool = AccountPool.initialize(accounts_config, headless=True)
+    print(f"Pool pronto! {pool.ready_count}/{pool.total_accounts} contas")
+
     sucessos = 0
     falhas = 0
     for v in videos:
         chat_id = int(v.parent.name)
         try:
-            processar_video(str(v), chat_id=chat_id)
+            processar_video(str(v), chat_id=chat_id, pool=pool)
             sucessos += 1
         except Exception as e:
             print(f"ERRO ao processar {v.name}: {e}")
             falhas += 1
 
+    pool.shutdown()
     print(f"Resumo: {sucessos} sucesso(s), {falhas} falha(s) em {len(videos)} video(s)")
 
 

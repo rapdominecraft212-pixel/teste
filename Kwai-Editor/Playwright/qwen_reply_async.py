@@ -39,7 +39,7 @@ Uso:
         qr.ask_on_page(page2, "pergunta 2"),
     )
 
-CLI (compativel com qwen_reply.py):
+CLI (standalone):
     python qwen_reply_async.py --prompt "analise" --arquivo video.mp4
 """
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout

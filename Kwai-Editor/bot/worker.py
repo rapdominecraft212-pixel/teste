@@ -280,26 +280,35 @@ def main():
         log.warn(f"KeepAwake falhou (nao critico): {e}")
 
     # === ACCOUNT POOL: aquecer contas Qwen no startup ===
+    # CRÍTICO: AccountPool é OBRIGATÓRIO em modo pipeline. Se falhar, aborta
+    # startup em vez de cair silenciosamente para legado (que causava 30-60s/job
+    # invisíveis). Bug identificado pela auditoria de legado (P1.4).
     pool = None
     if USE_PIPELINE:
         try:
             from Playwright.qwen_account_pool import AccountPool, load_accounts_config
             accounts_config = load_accounts_config()
             if len(accounts_config) < 2:
-                log.warn(f"Apenas {len(accounts_config)} conta(s) — precisa de 2+ para pool")
-                log.warn("Rodando sem pool — modo legado (1 Chrome por job)")
-            else:
-                headless = os.environ.get("QWEN_HEADLESS", "True").lower() in ("true", "1", "yes")
-                log.info(f"Aquecendo {len(accounts_config)} contas Qwen (headless={headless})...")
-                pool = AccountPool.initialize(accounts_config, headless=headless)
-                log.info(f"Pool pronto! {pool.ready_count}/{pool.total_accounts} contas — "
-                         f"max {pool.max_concurrent_jobs} jobs simultaneos")
+                log.error(f"CRÍTICO: Apenas {len(accounts_config)} conta(s) em accounts.json")
+                log.error("AccountPool requer 2+ contas para paralelizar capa+linha.")
+                log.error("Adicione contas em Playwright/accounts.json OU rode worker.py com USE_PIPELINE=False")
+                log.error("Abortando startup — não há fallback legado.")
+                sys.exit(1)
+            headless = os.environ.get("QWEN_HEADLESS", "True").lower() in ("true", "1", "yes")
+            log.info(f"Aquecendo {len(accounts_config)} contas Qwen (headless={headless})...")
+            pool = AccountPool.initialize(accounts_config, headless=headless)
+            log.info(f"Pool pronto! {pool.ready_count}/{pool.total_accounts} contas — "
+                     f"max {pool.max_concurrent_jobs} jobs simultaneos")
         except FileNotFoundError as e:
-            log.warn(f"AccountPool: {e}")
-            log.warn("Rodando sem pool — modo legado (1 Chrome por job)")
+            log.error(f"CRÍTICO: accounts.json não encontrado: {e}")
+            log.error("Crie Playwright/accounts.json com 2+ contas Qwen.")
+            log.error("Abortando startup — não há fallback legado.")
+            sys.exit(1)
         except Exception as e:
-            log.error(f"AccountPool falhou: {e}")
-            log.warn("Rodando sem pool — modo legado (1 Chrome por job)")
+            log.error(f"CRÍTICO: AccountPool falhou ao inicializar: {e}")
+            log.error("Abortando startup — não há fallback legado.")
+            traceback.print_exc()
+            sys.exit(1)
 
     if USE_PIPELINE:
         log.info(f"Worker iniciado em MODO PIPELINE (MAX_READY={MAX_READY_TO_RENDER})")
@@ -436,15 +445,12 @@ def run_pipeline_workers(pool=None):
 def worker_prepare(stop_event, pool=None):
     """Esteira Prepare: pega jobs queued, faz download + Qwen, marca ready_to_render.
 
-    Se pool disponivel: cada job adquire 2 contas do pool (ja logadas),
-    usa os browsers persistentes, devolve contas ao pool quando termina.
-    Login acontece UMA UNICA VEZ no startup — zero overhead por job.
-
-    Se sem pool: usa modo legado (cria/destroi Chrome por job).
+    OBRIGATORIAMENTE usa AccountPool (login feito 1x no startup). Não há fallback
+    legado — se pool=None, main() deveria ter abortado o startup.
 
     Respeita MAX_READY_TO_RENDER: se fila render esta cheia, pausa.
     """
-    from pipeline.simple import preparar_video, preparar_video_async_with_accounts
+    from pipeline.simple import preparar_video_async_with_accounts
 
     # === DEBUG INSTRUMENTATION: backoff_max_ready ===
     # Ponto cego #7 (agente1.md): o loop dorme 0.5s sem logar nada,
@@ -519,12 +525,16 @@ def worker_prepare(stop_event, pool=None):
             saved_path = result["saved_path"]
             log.info(f"[A {job_id[:12]}] Download OK: {saved_path}")
 
-            # [2/3] Qwen — usar pool se disponivel, senao modo legado
+            # [2/3] Qwen — OBRIGATORIAMENTE via pool (não há fallback legado)
+            # Se pool=None aqui, é bug: main() deveria ter abortado o startup.
             try:
-                if pool:
-                    prep_data = _prepare_with_pool(pool, job_id, saved_path, chat_id)
-                else:
-                    prep_data = preparar_video(job_id, saved_path, chat_id)
+                if pool is None:
+                    raise RuntimeError(
+                        "pool=None em worker_prepare — isto não deveria acontecer. "
+                        "AccountPool falhou no startup mas worker não abortou. "
+                        "Verifique USE_PIPELINE no .env e accounts.json."
+                    )
+                prep_data = _prepare_with_pool(pool, job_id, saved_path, chat_id)
             except Exception as e:
                 set_job_failed(job_id, f"prepare_failed: {e}")
                 traceback.print_exc()

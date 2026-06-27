@@ -65,12 +65,9 @@ mkdir data\cortado 2>nul
 mkdir data\editado 2>nul
 mkdir data\biblioteca 2>nul
 
-REM ---- PASSO 4: Resetar contador de API keys ----
+REM ---- PASSO 4: Concluido ----
 echo.
-echo [4/4] Resetando estado...
-
-echo 0> api_key_index.txt
-
+echo [4/4] Reset concluido.
 echo.
 echo ============================================
 echo  RESET COMPLETO!

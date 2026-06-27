@@ -4,8 +4,6 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from Playwright.qwen_reply import QwenReply
-
 PROMPT_CAPA_TITULO = (
     "Voce e um agente de Inteligencia Artificial integrado a um sistema automatizado "
     "de postagem para TikTok e Kwai. Sua funcao e atuar como especialista em retencao "
@@ -115,26 +113,6 @@ def _extrair_capa_titulo(texto):
     raise ValueError(f"Nao foi possivel extrair capa e titulo da resposta do Qwen: {texto[:500]}")
 
 
-def analisar(video_path):
-    if not os.path.exists(video_path):
-        raise FileNotFoundError(f"Arquivo nao encontrado: {video_path}")
-
-    with QwenReply(headless=True) as qr:
-        return analisar_com_instancia(qr, video_path)
-
-
-def analisar_com_instancia(qr, video_path):
-    qr.ask(PROMPT_CAPA_TITULO, arquivo=video_path, timeout=300)
-    texto = qr.ultima_resposta()
-    return _extrair_capa_titulo(texto)
-
-
-if __name__ == "__main__":
-    upload_dir = Path(__file__).resolve().parent.parent / "data" / "upload"
-    videos = sorted(upload_dir.glob("**/*.mp4"))
-    if not videos:
-        print("Nenhum video encontrado em data/upload/")
-        sys.exit(1)
-    capa, titulo = analisar(str(videos[0]))
-    print(f"Capa: {capa}")
-    print(f"Titulo: {titulo}")
+# NOTA: As funções `analisar()` e `analisar_com_instancia()` que usavam QwenReply (sync)
+# foram REMOVIDAS — QwenReply era legado e foi deletado. Para análise standalone,
+# use pipeline/simple.py:main() que usa AccountPool + QwenReplyAsync.

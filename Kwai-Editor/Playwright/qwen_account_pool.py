@@ -106,8 +106,9 @@ class QwenAccount:
     """
 
     def __init__(self, account_id: str, email: str, password: str,
-                 headless: bool = True):
-        self.id = account_id
+                 headless: bool = True, id_num: int = 0):
+        self.id = account_id          # ex: "conta_3"
+        self.id_num = id_num          # ex: 3 (para mensagens de erro amigáveis)
         self.email = email
         self.password = password
         self.headless = headless
@@ -125,13 +126,52 @@ class QwenAccount:
     # ─── Ciclo de vida ────────────────────────────────────────────────
 
     async def warm_up(self):
-        """Abre browser + faz login. Chamado UMA VEZ no startup."""
+        """Abre browser + restaura sessão persistida (sem login, sem captcha).
+
+        NOVO FLUXO (pós-auditoria de legado):
+        - Carrega sessão de Playwright/sessions/{id}.json (salva por setup_accounts.py)
+        - Abre Chrome com perfil temporário limpo
+        - Injeta cookies + localStorage + IndexedDB
+        - Recarrega página e verifica se sessão é válida (textarea visível)
+        - Se válida: state="ready" em ~5s, sem login, sem captcha
+        - Se expirada: state="error" com mensagem clara para re-rode setup_accounts.py
+
+        Antes: fazia login completo a cada startup → captcha em modo headless falhava.
+        """
         self.state = "warming"
         tag = f"conta {self.id}"
-        log.info(f"[{tag}] Aquecendo — login com {self.email}...")
+        log.info(f"[{tag}] Aquecendo — restaurando sessão persistida...")
+
+        # Importar módulo de sessão (lazy import para evitar dependência circular)
+        try:
+            from qwen_session import (
+                carregar_sessao, sessao_existe, restaurar_sessao,
+                sessao_eh_valida, bem_vindo_modal_visivel, get_session_path
+            )
+        except ImportError:
+            log.error(f"[{tag}] Módulo qwen_session não encontrado!")
+            self.state = "error"
+            raise RuntimeError("qwen_session.py não encontrado em Playwright/")
+
+        # Verificar que sessão existe
+        if not sessao_existe(self.id):
+            log.error(f"[{tag}] ❌ Sessão não encontrada em {get_session_path(self.id)}")
+            log.error(f"[{tag}]    Rode: python Playwright/setup_accounts.py --conta {self.id_num}")
+            self.state = "error"
+            raise RuntimeError(
+                f"Sessão da conta {self.id} não existe. "
+                f"Rode: python Playwright/setup_accounts.py --conta {self.id_num}"
+            )
+
+        # Carregar sessão
+        sessao = carregar_sessao(self.id)
+        if not sessao:
+            log.error(f"[{tag}] ❌ Sessão corrompida ou vazia")
+            self.state = "error"
+            raise RuntimeError(f"Sessão de {self.id} está corrompida")
 
         try:
-            # Criar diretorio de perfil limpo
+            # Criar diretorio de perfil temporário (não persistente — sessão vem do JSON)
             self._profile_dir = f"/tmp/chrome_kwai_conta_{self.id}"
             if os.path.exists(self._profile_dir):
                 shutil.rmtree(self._profile_dir, ignore_errors=True)
@@ -168,15 +208,50 @@ class QwenAccount:
             # Pagina principal (sera usada para keep-alive)
             self._main_page = self._ctx.pages[0] if self._ctx.pages else await self._ctx.new_page()
 
-            # Fazer login
-            await self._login()
+            # === Restaurar sessão (NOVO) ===
+            log.info(f"[{tag}] Navegando para Qwen e injetando sessão...")
+            await self._main_page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=30000)
+            await self._main_page.wait_for_timeout(1000)
 
-            self.state = "ready"
-            self._last_activity = time.time()
-            log.info(f"[{tag}] Pronta! Sessao ativa.")
+            # Injetar cookies + localStorage + IndexedDB
+            ok = await restaurar_sessao(self._ctx, self._main_page, sessao)
+            if not ok:
+                log.error(f"[{tag}] ❌ Falha ao restaurar sessão")
+                self.state = "error"
+                raise RuntimeError(f"Falha ao restaurar sessão de {self.id}")
+
+            # Recarregar para aplicar cookies
+            await self._main_page.reload(wait_until="domcontentloaded", timeout=30000)
+            await self._main_page.wait_for_timeout(2000)
+
+            # Verificar se sessão é válida
+            if await sessao_eh_valida(self._main_page, timeout_sec=10):
+                self.state = "ready"
+                self._last_activity = time.time()
+                log.info(f"[{tag}] ✅ Sessão restaurada — logado sem captcha!")
+                return
+
+            # Sessão inválida — verificar se é Welcome modal (expirou)
+            if await bem_vindo_modal_visivel(self._main_page):
+                log.error(f"[{tag}] ❌ Sessão EXPIROU (Welcome modal visível)")
+                log.error(f"[{tag}]    Rode: python Playwright/setup_accounts.py --conta {self.id_num}")
+                self.state = "error"
+                raise RuntimeError(
+                    f"Sessão de {self.id} expirou. "
+                    f"Rode: python Playwright/setup_accounts.py --conta {self.id_num}"
+                )
+
+            # Outro motivo de falha
+            log.error(f"[{tag}] ❌ Sessão restaurada mas textarea não apareceu")
+            self.state = "error"
+            raise RuntimeError(
+                f"Sessão de {self.id} não foi aceita pelo Qwen. "
+                f"Pode ser mudança de DOM ou sessão invalidada server-side. "
+                f"Rode: python Playwright/setup_accounts.py --conta {self.id_num}"
+            )
 
         except Exception as e:
-            log.error(f"[conta {self.id}] Falha no warm_up: {e}")
+            log.error(f"[{tag}] Falha no warm_up: {e}")
             traceback.print_exc()
             self.state = "error"
             # Tentar limpar
@@ -184,7 +259,11 @@ class QwenAccount:
             raise
 
     async def _login(self):
-        """Faz login no Qwen usando email/senha via pagina de auth."""
+        """Faz login no Qwen usando email/senha via pagina de auth.
+
+        DEPRECATED: Não é mais chamado em produção (warm_up usa sessão persistida).
+        Mantido para compatibilidade com testes standalone via setup_accounts.py.
+        """
         tag = f"conta {self.id}"
         page = self._main_page
 
@@ -497,7 +576,13 @@ class AccountPool:
 
     def __init__(self, accounts_config: list, headless: bool = True):
         self._accounts = [
-            QwenAccount(f"conta_{i+1}", acc["email"], acc["password"], headless)
+            QwenAccount(
+                account_id=f"conta_{i+1}",
+                email=acc["email"],
+                password=acc["password"],
+                headless=headless,
+                id_num=i + 1,
+            )
             for i, acc in enumerate(accounts_config)
         ]
         self._headless = headless

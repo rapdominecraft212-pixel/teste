@@ -5,6 +5,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Sessões Qwen (cookies + localStorage — NÃO subir pro GitHub, são credenciais!)
+Playwright/sessions/
+Playwright/login_debug/
+
 # Dados
 data/upload/*
 !data/upload/.gitkeep

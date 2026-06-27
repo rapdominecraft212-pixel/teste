@@ -133,23 +133,162 @@ def op_ver_status():
             print()
 
 
-def op_processar():
-    from worker import get_queued_jobs_round_robin, process_job
+def processar_jobs_com_pool():
+    """Modo moderno: inicializa AccountPool + sobe threads prepare/render,
+    polla count_active até zerar, deslige graciosamente.
 
+    Isto substitui o legado process_job() que criava Chrome novo por job
+    (30-60s de overhead invisível). Agora usa contas persistentes do pool.
+    """
+    import threading
+    from db import count_active, recover_processing_jobs, recover_pipeline_jobs
+    from worker import (
+        worker_prepare, worker_render,
+        USE_PIPELINE, MAX_PARALLEL_JOBS, MAX_READY_TO_RENDER,
+    )
+
+    if not USE_PIPELINE:
+        print(f"  [{ts()}] USE_PIPELINE=False no .env — modo legado não suportado.")
+        print(f"  Habilite USE_PIPELINE=True para usar AccountPool.")
+        return False
+
+    # Recovery: recupera jobs de execuções anteriores que ficaram em estado
+    # intermediário (preparing/rendering). Igual worker.py:main()
+    try:
+        recover_processing_jobs()
+        recover_pipeline_jobs()
+        log.info("TERMINAL: recovery de jobs executado")
+    except Exception as e:
+        log.warn(f"TERMINAL: recovery falhou (não crítico): {e}")
+
+    # Inicializar AccountPool (CRÍTICO — sem fallback para legado)
+    try:
+        from Playwright.qwen_account_pool import AccountPool, load_accounts_config
+        accounts_config = load_accounts_config()
+        if len(accounts_config) < 2:
+            print(f"  [{ts()}] CRÍTICO: Apenas {len(accounts_config)} conta(s) em accounts.json")
+            print(f"  AccountPool requer 2+ contas. Adicione em Playwright/accounts.json.")
+            return False
+        headless = os.environ.get("QWEN_HEADLESS", "True").lower() in ("true", "1", "yes")
+        print(f"  [{ts()}] Aquecendo {len(accounts_config)} contas Qwen (headless={headless})...")
+        pool = AccountPool.initialize(accounts_config, headless=headless)
+        print(f"  [{ts()}] Pool pronto! {pool.ready_count}/{pool.total_accounts} contas")
+        log.info(f"TERMINAL: pool inicializado com {pool.ready_count} contas")
+    except FileNotFoundError as e:
+        print(f"  [{ts()}] CRÍTICO: accounts.json não encontrado: {e}")
+        return False
+    except Exception as e:
+        print(f"  [{ts()}] CRÍTICO: AccountPool falhou: {e}")
+        log.error(f"TERMINAL: AccountPool falhou: {e}")
+        return False
+
+    # Configurar FFMPEG_THREADS_PER_RENDER (igual worker.py:run_pipeline_workers)
+    num_prep = min(pool.max_concurrent_jobs, MAX_PARALLEL_JOBS) if MAX_PARALLEL_JOBS > 0 else pool.max_concurrent_jobs
+    num_render = num_prep
+    if num_render > 1 and "FFMPEG_THREADS_PER_RENDER" not in os.environ:
+        cpu_count = os.cpu_count() or 4
+        threads_per_render = max(1, cpu_count // num_render)
+        os.environ["FFMPEG_THREADS_PER_RENDER"] = str(threads_per_render)
+        print(f"  [{ts()}] CPU: {cpu_count} cores, {num_render} renders -> "
+              f"FFmpeg threads/render={threads_per_render}")
+    elif "FFMPEG_THREADS_PER_RENDER" not in os.environ:
+        os.environ["FFMPEG_THREADS_PER_RENDER"] = "0"
+        print(f"  [{ts()}] FFmpeg threads/render=0 (1 render — usa todos os cores)")
+
+    # Subir threads prepare + render
+    stop_event = threading.Event()
+    prep_threads = []
+    for i in range(num_prep):
+        t = threading.Thread(
+            target=worker_prepare,
+            args=(stop_event, pool),
+            name=f"terminal_prep_{i}",
+            daemon=True,
+        )
+        prep_threads.append(t)
+
+    render_threads = []
+    for i in range(num_render):
+        t = threading.Thread(
+            target=worker_render,
+            args=(stop_event, i),
+            name=f"terminal_render_{i}",
+            daemon=True,
+        )
+        render_threads.append(t)
+
+    for t in prep_threads + render_threads:
+        t.start()
+        print(f"  [{ts()}] {t.name} iniciada")
+
+    # Pollar até todos os jobs terminarem (count_active == 0)
+    print(f"  [{ts()}] Aguardando jobs serem processados...")
+    log.info(f"TERMINAL: {num_prep} threads prep + {num_render} threads render ativas")
+
+    idle_iterations = 0
+    last_active_count = -1
+    while True:
+        active = count_active(CHAT_ID)
+        if active != last_active_count:
+            print(f"  [{ts()}] Jobs ativos: {active}")
+            last_active_count = active
+            idle_iterations = 0
+        else:
+            idle_iterations += 1
+
+        if active == 0:
+            print(f"  [{ts()}] Todos os jobs concluídos!")
+            break
+
+        # Safety: se não houve mudança em 5 minutos (300 iterações de 1s), abortar
+        if idle_iterations > 300:
+            print(f"  [{ts()}] TIMEOUT: jobs ainda ativos após 5min sem progresso")
+            log.error(f"TERMINAL: timeout — {active} jobs ainda ativos")
+            break
+
+        time_module.sleep(1)
+
+    # Sinal de parada
+    stop_event.set()
+    print(f"  [{ts()}] Sinal de parada enviado, aguardando threads...")
+
+    # Aguardar threads terminarem (com timeout)
+    for t in prep_threads + render_threads:
+        t.join(timeout=10)
+        if t.is_alive():
+            print(f"  [{ts()}] WARN: {t.name} ainda rodando após 10s")
+
+    # Desligar pool
+    print(f"  [{ts()}] Desligando pool de contas...")
+    pool.shutdown()
+    print(f"  [{ts()}] Pool desligado.")
+    log.info("TERMINAL: pool desligado")
+
+    return True
+
+
+def op_processar():
+    """Modernizado: usa AccountPool + worker_prepare/worker_render em vez de process_job legado."""
+    from db import count_active, get_next_queued_job
+    from worker import get_queued_jobs_round_robin
+
+    # Verifica se há jobs na fila (queued = aguardando processamento)
     jobs = get_queued_jobs_round_robin()
     if not jobs:
-        print(f"\n  [{ts()}] Nenhum job na fila.")
-        return
+        # Também pode haver jobs em andamento de execução anterior
+        active = count_active(CHAT_ID)
+        if active == 0:
+            print(f"\n  [{ts()}] Nenhum job na fila.")
+            return
+        print(f"\n  [{ts()}] {active} job(s) em andamento de execução anterior.")
+        print(f"  Continuando processamento...")
+    else:
+        print(f"\n  [{ts()}] {len(jobs)} job(s) na fila, iniciando com AccountPool (modo moderno)...")
 
-    print(f"\n  [{ts()}] Processando {len(jobs)} job(s)...")
-    log.info(f"TERMINAL: processando {len(jobs)} job(s)")
+    log.info(f"TERMINAL: processando {len(jobs)} job(s) via AccountPool")
     t0 = time_module.time()
 
-    for idx, j in enumerate(jobs, 1):
-        jid = j["job_id"][:12]
-        print(f"\n  ─── Job {idx}/{len(jobs)} [{jid}] ───")
-        log.info(f"TERMINAL: job {jid} iniciando ({idx}/{len(jobs)})")
-        process_job(j)
+    sucesso = processar_jobs_com_pool()
 
     elapsed = time_module.time() - t0
     editado = PROJECT_ROOT / "data" / "editado" / str(CHAT_ID)
@@ -166,10 +305,14 @@ def op_processar():
             print(f"\n  Pasta: {editado}")
         else:
             print("  Nenhum video .mp4 encontrado na pasta editado.")
+            arquivos = []
     else:
         print("  Nenhum video foi gerado.")
+        arquivos = []
 
-    log.info(f"TERMINAL: lote concluido em {elapsed:.0f}s, {len(arquivos) if editado.exists() else 0} videos")
+    log.info(f"TERMINAL: lote concluido em {elapsed:.0f}s, "
+             f"{len(arquivos) if editado.exists() else 0} videos, "
+             f"pool={'OK' if sucesso else 'FALHOU'}")
 
 
 def op_abrir_pasta():

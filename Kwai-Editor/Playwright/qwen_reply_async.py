@@ -636,11 +636,20 @@ class QwenReplyAsync:
                 raise RuntimeError(f"Qwen nao comecou a gerar. Estado da pagina: {estado}")
 
         # Espera o Qwen terminar de gerar (stop-button desaparece)
-        # Com polling e log de progresso a cada 30s
+        #
+        # DEBUG INSTRUMENTATION (agente3.md, ponto cego #8):
+        # Esta é a etapa MAIS LONGA do pipeline (10-180s de geração Qwen).
+        # Antes: log "Ainda gerando..." só a cada 30s — buraco negro.
+        # Agora: log a cada 10s + contador de iterações + tamanho parcial da resposta.
         deadline = time.time() + timeout
+        poll_start = time.time()
         elapsed = 0
         last_log = time.time()
+        iter_count = 0
+        last_response_len = 0
+        print(f"    [{tag}] [geracao] START deadline={timeout}s — Qwen comecou a gerar resposta", flush=True)
         while time.time() < deadline:
+            iter_count += 1
             try:
                 remaining_ms = int((deadline - time.time()) * 1000)
                 await page.wait_for_function(
@@ -648,30 +657,68 @@ class QwenReplyAsync:
                     timeout=min(30000, max(remaining_ms, 1000))
                 )
                 await page.wait_for_timeout(2000)
-                elapsed = time.time() - (deadline - timeout)
-                print(f"    [{tag}] Geracao concluida em {elapsed:.0f}s — stop-button sumiu", flush=True)
+                elapsed = time.time() - poll_start
+                # Tentar medir tamanho parcial da resposta final para confirmação
+                try:
+                    partial_len = await page.evaluate("""
+                        () => {
+                            const msgs = document.querySelectorAll('.qwen-chat-message-assistant');
+                            if (msgs.length === 0) return 0;
+                            const last = msgs[msgs.length - 1];
+                            return (last.innerText || '').length;
+                        }
+                    """)
+                except Exception:
+                    partial_len = -1
+                print(f"    [{tag}] [geracao] DONE em {elapsed:.1f}s iter={iter_count} "
+                      f"resp_chars={partial_len} — stop-button sumiu", flush=True)
+                if elapsed > 90:
+                    print(f"    [{tag}] [geracao] ANOMALIA geracao demorou {elapsed:.1f}s — "
+                          f"modelo lento ou resposta muito longa", flush=True)
                 return
             except PlaywrightTimeout:
                 # Checar erros
                 erro = await QwenReplyAsync._checar_erro_qwen(page)
                 if erro:
-                    print(f"    [{tag}] Geracao FALHOU: erro detectado durante geracao: {erro}", flush=True)
+                    print(f"    [{tag}] [geracao] FALHOU em {time.time()-poll_start:.1f}s iter={iter_count} "
+                          f"erro={erro}", flush=True)
                     raise RuntimeError(f"Qwen erro durante geracao: {erro}")
 
                 # Checar se stop-button ainda existe
                 still_generating = await page.evaluate("!!document.querySelector('.stop-button')")
                 if not still_generating:
                     await page.wait_for_timeout(2000)
-                    elapsed = time.time() - (deadline - timeout)
-                    print(f"    [{tag}] Geracao concluida em {elapsed:.0f}s — stop-button sumiu (via evaluate)", flush=True)
+                    elapsed = time.time() - poll_start
+                    print(f"    [{tag}] [geracao] DONE em {elapsed:.1f}s iter={iter_count} "
+                          f"— stop-button sumiu (via evaluate)", flush=True)
                     return
 
-                # Log de progresso a cada ~30s
+                # Log de progresso a cada ~10s (era 30s antes) + tamanho parcial
                 now = time.time()
-                if now - last_log >= 30:
-                    elapsed = now - (deadline - timeout)
+                if now - last_log >= 10:
+                    elapsed = now - poll_start
                     remaining = deadline - now
-                    print(f"    [{tag}] Ainda gerando... {elapsed:.0f}s decorridos, {remaining:.0f}s restantes", flush=True)
+                    # Medir tamanho parcial da resposta em andamento
+                    try:
+                        partial_len = await page.evaluate("""
+                            () => {
+                                const msgs = document.querySelectorAll('.qwen-chat-message-assistant');
+                                if (msgs.length === 0) return 0;
+                                const last = msgs[msgs.length - 1];
+                                return (last.innerText || '').length;
+                            }
+                        """)
+                    except Exception:
+                        partial_len = -1
+                    delta_chars = partial_len - last_response_len if partial_len > 0 else 0
+                    last_response_len = partial_len if partial_len > 0 else last_response_len
+                    print(f"    [{tag}] [geracao] PROGRESS elapsed={elapsed:.0f}s "
+                          f"remaining={remaining:.0f}s iter={iter_count} "
+                          f"resp_chars={partial_len} delta=+{delta_chars}", flush=True)
+                    # Detectar se resposta parou de crescer (possível travamento)
+                    if elapsed > 30 and delta_chars == 0:
+                        print(f"    [{tag}] [geracao] ANOMALIA resposta nao cresceu nos ultimos 10s "
+                              f"(chars={partial_len}) — possivel travamento do Qwen", flush=True)
                     last_log = now
 
         # Timeout total excedido

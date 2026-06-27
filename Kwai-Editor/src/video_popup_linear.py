@@ -576,27 +576,72 @@ def _composite_with_ffmpeg(video_path: str, bg_path: str, popup_path: str | None
                     pass
                 break
 
+    # DEBUG INSTRUMENTATION (agente4.md, ponto cego #4):
+    # Deadline de 300s sem log intermediário — se FFmpeg travar, desperdiça
+    # 300s silenciosamente antes de falhar e cair no fallback MoviePy.
+    # Agora: log de heartbeat a cada 15s com % do deadline, % do output,
+    # e detecção de "stderr silencioso" (FFmpeg parou de emitir progresso).
     try:
         # Timeout total para o processo
         deadline = time_module.time() + 300  # 5 min max
+        composite_start = time_module.time()
+        last_heartbeat_log = time_module.time()
+        last_stderr_chunk_time = time_module.time()
+        silent_iterations = 0
+        print(f"[render] [composite] START deadline=300s duration={duration:.1f}s "
+              f"cmd_filter_complex={filter_complex[:80]}...", flush=True)
         while process.poll() is None and time_module.time() < deadline:
             # Ler stderr disponível sem bloquear
             try:
                 chunk = process.stderr.read1(4096) if hasattr(process.stderr, 'read1') else b""
                 if chunk:
                     text = chunk.decode("utf-8", errors="replace")
+                    last_stderr_chunk_time = time_module.time()
+                    silent_iterations = 0
                     if "out_time" in text:
                         _try_parse_progress(text)
                 else:
+                    silent_iterations += 1
                     time_module.sleep(0.5)
             except Exception:
+                silent_iterations += 1
                 time_module.sleep(0.5)
 
+            # Heartbeat a cada 15s: mostra tempo decorrido, % do deadline,
+            # % do output, e se stderr está silencioso há muito tempo
+            now = time_module.time()
+            if now - last_heartbeat_log >= 15:
+                elapsed_total = now - composite_start
+                deadline_pct = (elapsed_total / 300.0) * 100
+                output_pct = last_reported_pct if last_reported_pct >= 0 else -1
+                silence_sec = now - last_stderr_chunk_time
+                print(f"[render] [composite] HEARTBEAT elapsed={elapsed_total:.0f}s "
+                      f"deadline={deadline_pct:.0f}% output_pct={output_pct}% "
+                      f"silent_for={silence_sec:.1f}s iter={silent_iterations}", flush=True)
+                # Anomalia: stderr silencioso por mais de 30s — FFmpeg pode ter travado
+                if silence_sec > 30:
+                    print(f"[render] [composite] ANOMALIA stderr silencioso por {silence_sec:.1f}s "
+                          f"— FFmpeg pode estar travado ou processando sem emitir progresso", flush=True)
+                # Anomalia: já consumiu 75% do deadline mas output < 50%
+                if deadline_pct > 75 and output_pct >= 0 and output_pct < 50:
+                    print(f"[render] [composite] ANOMALIA deadline {deadline_pct:.0f}% consumido "
+                          f"mas output só {output_pct}% — vai estourar timeout 300s", flush=True)
+                last_heartbeat_log = now
+
         # Se ainda rodando, matar
+        final_elapsed = time_module.time() - composite_start
         if process.poll() is None:
+            print(f"[render] [composite] TIMEOUT após {final_elapsed:.0f}s — matando FFmpeg "
+                  f"(output_pct={last_reported_pct}%)", flush=True)
             process.kill()
             process.wait(timeout=10)
-            raise RuntimeError("ffmpeg composite timeout (300s)")
+            raise RuntimeError(f"ffmpeg composite timeout (300s) — last output_pct={last_reported_pct}%")
+        else:
+            print(f"[render] [composite] DONE em {final_elapsed:.1f}s "
+                  f"returncode={process.returncode} output_pct={last_reported_pct}%", flush=True)
+            if final_elapsed > 180:
+                print(f"[render] [composite] ANOMALIA composite demorou {final_elapsed:.1f}s "
+                      f"— CPU bound, considerar reduzir FFMPEG_THREADS_PER_RENDER", flush=True)
 
     except Exception as e:
         if process.poll() is None:

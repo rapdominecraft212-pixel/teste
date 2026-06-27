@@ -446,12 +446,37 @@ def worker_prepare(stop_event, pool=None):
     """
     from pipeline.simple import preparar_video, preparar_video_async_with_accounts
 
+    # === DEBUG INSTRUMENTATION: backoff_max_ready ===
+    # Ponto cego #7 (agente1.md): o loop dorme 0.5s sem logar nada,
+    # podendo acumular 60s+ invisível por job quando render está lento.
+    # Agora loga timestamp de entrada, duração acumulada e dispara
+    # anomaly detector se backoff > 10s.
+    _backoff_start = None
+    _backoff_iters = 0
+
     while not stop_event.is_set():
         try:
             # Respeitar MAX_READY_TO_RENDER
             if count_ready_to_render() >= MAX_READY_TO_RENDER:
+                if _backoff_start is None:
+                    _backoff_start = time.perf_counter()
+                    _backoff_iters = 0
+                    log.info(f"[A] [backoff_max_ready] ENTER ready_count={count_ready_to_render()} "
+                             f"limit={MAX_READY_TO_RENDER} — esteira A pausada aguardando render consumir")
+                _backoff_iters += 1
                 time.sleep(0.5)
                 continue
+
+            # Saiu do backoff (se estava em backoff) — loga duração total
+            if _backoff_start is not None:
+                _backoff_dt = time.perf_counter() - _backoff_start
+                log.info(f"[A] [backoff_max_ready] EXIT waited={_backoff_dt:.2f}s iterations={_backoff_iters}")
+                if _backoff_dt > 10.0:
+                    log.warn(f"[A] [backoff_max_ready] ANOMALIA esteira A pausada {_backoff_dt:.2f}s "
+                             f"esperando render consumir — render é gargalo "
+                             f"(considere +threads render, +MAX_READY_TO_RENDER, ou perfil de FFmpeg)")
+                _backoff_start = None
+                _backoff_iters = 0
 
             job = get_next_queued_job()
             if not job:

@@ -106,48 +106,117 @@ async def _perguntar_linha_async_log(qr, page, grid_path, cell_h, timeout=120, t
 # === Preparar video — versao async com AccountPool (novo) ===
 
 async def _ask_capa_titulo_direct(page, video_path, tag='capa+titulo', timeout=120):
-    """Envia prompt de capa+titulo diretamente via pagina do pool (sem QwenReplyAsync)."""
+    """Envia prompt de capa+titulo diretamente via pagina do pool (sem QwenReplyAsync).
+
+    DEBUG INSTRUMENTATION (agente2.md, ponto cego #3):
+    Adicionados sub-timers para as 4 sub-etapas (upload, envio, espera, extracao)
+    para distinguir 'upload lento' de 'inferencia Qwen lenta'.
+    Sem isso, o tempo total (~30-130s) era uma caixa preta.
+    """
     t0 = time_module.time()
-    log.info(f"  [{tag}] Enviando pergunta unificada + video...")
+    video_size_mb = os.path.getsize(video_path) / 1024 / 1024
+    log.info(f"  [{tag}] Enviando pergunta unificada + video (size={video_size_mb:.1f}MB)...")
     try:
-        # Upload
+        # Sub-etapa 1/4: Upload do video
+        t_upload = time_module.time()
         await QwenReplyAsync._upload_page(page, video_path, tag=tag)
-        # Enviar prompt
+        dt_upload = time_module.time() - t_upload
+        log.info(f"  [{tag}] [sub 1/4 upload] dt={dt_upload:.2f}s size={video_size_mb:.1f}MB "
+                 f"throughput={video_size_mb/dt_upload if dt_upload > 0 else 0:.2f}MB/s")
+        if dt_upload > 30:
+            log.warn(f"  [{tag}] [sub 1/4 upload] ANOMALIA upload demorou {dt_upload:.2f}s "
+                     f"— rede lenta ou Qwen processando upload")
+
+        # Sub-etapa 2/4: Enviar prompt (ate stop-button aparecer = Qwen comecou a gerar)
+        t_envio = time_module.time()
         await QwenReplyAsync._enviar_page(page, qwen_capa_titulo.PROMPT_CAPA_TITULO, timeout, tag=tag)
-        # Esperar e extrair resposta
+        dt_envio = time_module.time() - t_envio
+        log.info(f"  [{tag}] [sub 2/4 envio] dt={dt_envio:.2f}s (prompt enviado, Qwen comecou a gerar)")
+        if dt_envio > 20:
+            log.warn(f"  [{tag}] [sub 2/4 envio] ANOMALIA envio+start geracao demorou {dt_envio:.2f}s "
+                     f"— possivel rate limit do Qwen")
+
+        # Sub-etapa 3/4: Esperar geracao concluir (ate stop-button sumir)
+        t_geracao = time_module.time()
         await QwenReplyAsync._esperar_e_extrair_resposta(page, tag=tag)
+        dt_geracao = time_module.time() - t_geracao
+        log.info(f"  [{tag}] [sub 3/4 geracao] dt={dt_geracao:.2f}s (Qwen gerando resposta)")
+        if dt_geracao > 60:
+            log.warn(f"  [{tag}] [sub 3/4 geracao] ANOMALIA inferencia Qwen demorou {dt_geracao:.2f}s "
+                     f"— modelo lento ou resposta longa")
+
+        # Sub-etapa 4/4: Extracao do texto do DOM
+        t_extr = time_module.time()
         resultado = await QwenReplyAsync._ultima_resposta_page(page)
+        dt_extr = time_module.time() - t_extr
+        log.info(f"  [{tag}] [sub 4/4 extracao] dt={dt_extr:.2f}s ({len(resultado) if resultado else 0} chars)")
+
         texto_capa, texto_titulo = qwen_capa_titulo._extrair_capa_titulo(resultado)
         dt = time_module.time() - t0
-        log.info(f"  [{tag}] OK em {dt:.0f}s — Capa=\"{texto_capa}\" Titulo=\"{texto_titulo}\"")
+        log.info(f"  [{tag}] OK em {dt:.2f}s breakdown=upload:{dt_upload:.1f}s,envio:{dt_envio:.1f}s,"
+                 f"geracao:{dt_geracao:.1f}s,extr:{dt_extr:.1f}s — "
+                 f"Capa=\"{texto_capa}\" Titulo=\"{texto_titulo}\"")
         return texto_capa, texto_titulo
     except Exception as e:
         dt = time_module.time() - t0
-        log.error(f"  [{tag}] FALHOU em {dt:.0f}s — {e}")
+        log.error(f"  [{tag}] FALHOU em {dt:.2f}s — {e}")
         raise
 
 
 async def _perguntar_linha_direct(page, grid_path, cell_h, tag='linha', timeout=120, total_linhas=80):
-    """Envia prompt de linha diretamente via pagina do pool (sem QwenReplyAsync)."""
+    """Envia prompt de linha diretamente via pagina do pool (sem QwenReplyAsync).
+
+    DEBUG INSTRUMENTATION (agente2.md, ponto cego #4):
+    Mesma instrumentacao de sub-timers do _ask_capa_titulo_direct,
+    aplicada as 4 sub-etapas do fluxo de linha.
+    """
     t0 = time_module.time()
-    log.info(f"  [{tag}] Enviando pergunta + imagem grid...")
+    grid_size_kb = os.path.getsize(grid_path) / 1024
+    log.info(f"  [{tag}] Enviando pergunta + imagem grid (size={grid_size_kb:.0f}KB)...")
     try:
-        # Upload
+        # Sub-etapa 1/4: Upload do JPG (deveria ser rapido ~0.5-3s)
+        t_upload = time_module.time()
         await QwenReplyAsync._upload_page(page, grid_path, tag=tag)
-        # Enviar prompt
+        dt_upload = time_module.time() - t_upload
+        log.info(f"  [{tag}] [sub 1/4 upload] dt={dt_upload:.2f}s size={grid_size_kb:.0f}KB")
+        if dt_upload > 15:
+            log.warn(f"  [{tag}] [sub 1/4 upload] ANOMALIA upload JPG demorou {dt_upload:.2f}s "
+                     f"— deveria ser <3s, possivel problema de rede")
+
+        # Sub-etapa 2/4: Enviar prompt
+        t_envio = time_module.time()
         await QwenReplyAsync._enviar_page(page, qwen_linha.PROMPT_LINHA, timeout, tag=tag)
-        # Esperar e extrair resposta
+        dt_envio = time_module.time() - t_envio
+        log.info(f"  [{tag}] [sub 2/4 envio] dt={dt_envio:.2f}s")
+        if dt_envio > 20:
+            log.warn(f"  [{tag}] [sub 2/4 envio] ANOMALIA envio demorou {dt_envio:.2f}s")
+
+        # Sub-etapa 3/4: Esperar geracao
+        t_geracao = time_module.time()
         await QwenReplyAsync._esperar_e_extrair_resposta(page, tag=tag)
+        dt_geracao = time_module.time() - t_geracao
+        log.info(f"  [{tag}] [sub 3/4 geracao] dt={dt_geracao:.2f}s")
+        if dt_geracao > 45:
+            log.warn(f"  [{tag}] [sub 3/4 geracao] ANOMALIA inferencia Qwen (linha) demorou "
+                     f"{dt_geracao:.2f}s — modelo lento")
+
+        # Sub-etapa 4/4: Extracao
+        t_extr = time_module.time()
         texto = await QwenReplyAsync._ultima_resposta_page(page)
+        dt_extr = time_module.time() - t_extr
+        log.info(f"  [{tag}] [sub 4/4 extracao] dt={dt_extr:.2f}s ({len(texto) if texto else 0} chars)")
+
         row_start, row_end = qwen_linha._extrair_linhas(texto, total_linhas=total_linhas)
         y_start = int((row_start - 1) * cell_h)
         y_end = int(row_end * cell_h)
         dt = time_module.time() - t0
-        log.info(f"  [{tag}] OK em {dt:.0f}s — Linha_inicial={row_start} Linha_final={row_end} (y={y_start}-{y_end})")
+        log.info(f"  [{tag}] OK em {dt:.2f}s breakdown=upload:{dt_upload:.1f}s,envio:{dt_envio:.1f}s,"
+                 f"geracao:{dt_geracao:.1f}s,extr:{dt_extr:.1f}s — "
+                 f"Linha_inicial={row_start} Linha_final={row_end} (y={y_start}-{y_end})")
         return y_start, y_end
     except Exception as e:
         dt = time_module.time() - t0
-        log.error(f"  [{tag}] FALHOU em {dt:.0f}s — {e}")
+        log.error(f"  [{tag}] FALHOU em {dt:.2f}s — {e}")
         raise
 
 

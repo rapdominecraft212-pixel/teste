@@ -17,14 +17,14 @@ FINAL_SIZE = (720, 1274)
 DURATION_FALLBACK = 180
 MAX_DURATION = 180
 FPS = 30
-VIDEO_QUALITY = 22  # CRF: menor = maior qualidade (22 = bom equilíbrio velocidade/qualidade)
+VIDEO_QUALITY = 20
 
 VIDEO_X, VIDEO_Y, VIDEO_W, VIDEO_H = 0, 108, 720, 540
 
 USE_BLURRED_BACKGROUND = True
 BLUR_RADIUS = 30
 BLUR_DOWNSAMPLE_WIDTH = 160
-ENCODER_PRESET = "veryfast"  # muito mais rapido que medium, qualidade quase identica a olho nu
+ENCODER_PRESET = "ultrafast"
 
 # === Controle de threads FFmpeg para renders paralelos ===
 # Quando N renders rodam em paralelo, cada FFmpeg deve usar menos threads
@@ -46,7 +46,7 @@ def _ffmpeg_threads():
 
 # === Fase 1: pre-render do background blur ===
 USE_PRERENDERED_BG = True
-PRERENDER_BG_SIGMA = 30  # Gaussian blur sigma (gblur) — vidro embaçado suave
+PRERENDER_BG_SIGMA = 10  # Gaussian blur sigma (gblur) — blur suave para background
 
 # === Fase 2: pre-render do popup com canal alpha ===
 USE_PRERENDERED_POPUP = True
@@ -156,8 +156,8 @@ def _prerender_background(input_path: str, duration: float, output_path: str) ->
         "-vf", f"scale={FINAL_SIZE[0]}:{FINAL_SIZE[1]}:force_original_aspect_ratio=increase,setsar=1:1,gblur=sigma={PRERENDER_BG_SIGMA},crop={FINAL_SIZE[0]}:{FINAL_SIZE[1]}",
         "-threads", _ffmpeg_threads(),  # Limitado em renders paralelos
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "28",  # BG blur nao precisa de alta qualidade
+        "-preset", "ultrafast",
+        "-crf", "28",
         "-an",
         output_path,
     ]
@@ -348,6 +348,8 @@ def _prerender_popup(titulo: str, subtitulo: str, duration: float,
             "-f", "concat",
             "-safe", "0",
             "-i", str(concat_path),
+            "-vsync", "cfr",
+            "-r", str(FPS),
             "-c:v", POPUP_PRERENDER_CODEC,
             "-pix_fmt", POPUP_PRERENDER_PIXFMT,
             output_path,
@@ -496,10 +498,10 @@ def _composite_with_ffmpeg(video_path: str, bg_path: str, popup_path: str | None
 
     if popup_path:
         filter_complex = (
-            f"[0:v]scale={new_w}:{new_h_after_scale}:flags=lanczos,"
+            f"[0:v]scale={new_w}:{new_h_after_scale}:flags=bilinear,"
             f"crop={VIDEO_W}:{final_h}:0:{y_crop},setsar=1:1[scaled];"
-            f"[1:v][scaled]overlay={VIDEO_X}:{VIDEO_Y}[bg+vid];"
-            f"[bg+vid][2:v]overlay={POPUP_X}:{POPUP_Y}[out]"
+            f"[1:v][scaled]overlay={VIDEO_X}:{VIDEO_Y}:format=auto,format=rgba[bg+vid];"
+            f"[bg+vid][2:v]overlay={POPUP_X}:{POPUP_Y}:format=auto[out]"
         )
         cmd = [
             "ffmpeg", "-y",
@@ -513,7 +515,7 @@ def _composite_with_ffmpeg(video_path: str, bg_path: str, popup_path: str | None
         ]
     else:
         filter_complex = (
-            f"[0:v]scale={new_w}:{new_h_after_scale}:flags=lanczos,"
+            f"[0:v]scale={new_w}:{new_h_after_scale}:flags=bilinear,"
             f"crop={VIDEO_W}:{final_h}:0:{y_crop},setsar=1:1[scaled];"
             f"[1:v][scaled]overlay={VIDEO_X}:{VIDEO_Y}[out]"
         )
@@ -531,6 +533,7 @@ def _composite_with_ffmpeg(video_path: str, bg_path: str, popup_path: str | None
         "-r", str(FPS),
         "-c:v", "libx264",
         "-preset", ENCODER_PRESET,
+        "-tune", "fastdecode",
         "-crf", str(VIDEO_QUALITY),
         "-threads", _ffmpeg_threads(),  # Limitado em renders paralelos
         "-pix_fmt", "yuv420p",
@@ -722,7 +725,7 @@ def criar_video(
         bg_cache_path = str(Path(tempfile.gettempdir()) / f"vpl_bg_{input_hash}.mp4")
     if USE_PRERENDERED_POPUP:
         popup_hash = hashlib.md5(
-            f"{titulo}|{subtitulo}|{duration:.2f}".encode()
+            f"v2|{FPS}|{POPUP_PRERENDER_CODEC}|{POPUP_PRERENDER_PIXFMT}|{titulo}|{subtitulo}|{duration:.2f}".encode()
         ).hexdigest()[:12]
         popup_cache_path = str(Path(tempfile.gettempdir()) / f"vpl_popup_{popup_hash}.mov")
 
@@ -859,7 +862,7 @@ def criar_video(
             audio_codec="aac",
             threads=int(_ffmpeg_threads()) if _ffmpeg_threads() != "0" else 4,
             logger=render_logger,
-            ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "faststart", "-crf", str(VIDEO_QUALITY), "-vf", "setsar=1:1"],
+            ffmpeg_params=["-pix_fmt", "yuv420p", "-movflags", "faststart", "-tune", "fastdecode", "-crf", str(VIDEO_QUALITY), "-vf", "setsar=1:1"],
         )
 
     # === Fase 1 + 2: cleanup dos caches temporarios ===

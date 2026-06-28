@@ -236,7 +236,11 @@ def handle_check_videos(chat_id):
     if ready > 0:
         arquivos = []
         if editado_dir.exists():
-            arquivos = sorted(editado_dir.glob("*.mp4"))
+            now = time.time()
+            # Mostrar apenas arquivos das ultimas 24h (evita acumulo de sessoes antigas)
+            arquivos = sorted(
+                [f for f in editado_dir.glob("*.mp4") if f.stat().st_mtime >= now - 86400]
+            )
         file_list = ""
         if arquivos:
             for f in arquivos:

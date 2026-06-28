@@ -715,10 +715,6 @@ class QwenReplyAsync:
                     print(f"    [{tag}] [geracao] PROGRESS elapsed={elapsed:.0f}s "
                           f"remaining={remaining:.0f}s iter={iter_count} "
                           f"resp_chars={partial_len} delta=+{delta_chars}", flush=True)
-                    # Detectar se resposta parou de crescer (possível travamento)
-                    if elapsed > 30 and delta_chars == 0:
-                        print(f"    [{tag}] [geracao] ANOMALIA resposta nao cresceu nos ultimos 10s "
-                              f"(chars={partial_len}) — possivel travamento do Qwen", flush=True)
                     last_log = now
 
         # Timeout total excedido

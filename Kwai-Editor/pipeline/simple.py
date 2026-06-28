@@ -13,7 +13,57 @@ import src.video_popup_linear as video_popup_linear
 from bot.log_utils import log
 
 
+# === Qwen capa+titulo timeout config ===
+_ASK_TIMEOUT = int(os.environ.get("QWEN_GERACAO_TIMEOUT", "300"))
+_ASK_DOWNSCALE_HEIGHT = int(os.environ.get("QWEN_DOWNSCALE_HEIGHT", "0"))
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _downscale_video_for_qwen(video_path: str, target_height: int) -> str:
+    """Cria cópia temporária com resolução reduzida para upload ao Qwen.
+    Retorna caminho do tempfile (chamador deve limpar).
+    Se falhar, retorna o caminho original (fallback).
+    """
+    import subprocess
+    import tempfile
+
+    original_size = os.path.getsize(video_path)
+    fd, tmp_path = tempfile.mkstemp(suffix='.mp4')
+    os.close(fd)
+
+    cmd = [
+        'ffmpeg', '-y',
+        '-i', video_path,
+        '-vf', f'scale=-1:{target_height}',
+        '-preset', 'ultrafast',
+        '-crf', '28',
+        '-an',
+        tmp_path
+    ]
+
+    t0 = time_module.time()
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=120)
+        dt = time_module.time() - t0
+        tmp_size = os.path.getsize(tmp_path)
+
+        if tmp_size > 0 and tmp_size < original_size:
+            log.info(f"  [downscale] OK {dt:.1f}s: {original_size/1024/1024:.1f}MB -> "
+                     f"{tmp_size/1024/1024:.1f}MB ({target_height}p)")
+            return tmp_path
+        else:
+            log.warn(f"  [downscale] tempfile invalido ({tmp_size} bytes), usando original")
+    except Exception as e:
+        log.warn(f"  [downscale] Falhou ({e}), usando original")
+
+    try:
+        os.remove(tmp_path)
+    except:
+        pass
+    return video_path
+
 
 TIMINGS_PADRAO = {
     "popup_1_in": 0.0,
@@ -62,7 +112,7 @@ def _limpar_grid_temp(grid_info):
 
 # === Preparar video — versao async com AccountPool (novo) ===
 
-async def _ask_capa_titulo_direct(page, video_path, tag='capa+titulo', timeout=120):
+async def _ask_capa_titulo_direct(page, video_path, tag='capa+titulo', timeout=None):
     """Envia prompt de capa+titulo diretamente via pagina do pool (sem QwenReplyAsync).
 
     DEBUG INSTRUMENTATION (agente2.md, ponto cego #3):
@@ -70,16 +120,29 @@ async def _ask_capa_titulo_direct(page, video_path, tag='capa+titulo', timeout=1
     para distinguir 'upload lento' de 'inferencia Qwen lenta'.
     Sem isso, o tempo total (~30-130s) era uma caixa preta.
     """
+    if timeout is None:
+        timeout = _ASK_TIMEOUT
     t0 = time_module.time()
-    video_size_mb = os.path.getsize(video_path) / 1024 / 1024
-    log.info(f"  [{tag}] Enviando pergunta unificada + video (size={video_size_mb:.1f}MB)...")
+
+    # Downscale video for Qwen upload (se configurado)
+    downscaled_path = None
+    upload_path = video_path
+    upload_size_mb = os.path.getsize(video_path) / 1024 / 1024
+    if _ASK_DOWNSCALE_HEIGHT > 0:
+        tmp = _downscale_video_for_qwen(video_path, _ASK_DOWNSCALE_HEIGHT)
+        if tmp != video_path:
+            downscaled_path = tmp
+            upload_path = tmp
+            upload_size_mb = os.path.getsize(tmp) / 1024 / 1024
+
+    log.info(f"  [{tag}] Enviando pergunta unificada + video (size={upload_size_mb:.1f}MB)...")
     try:
         # Sub-etapa 1/4: Upload do video
         t_upload = time_module.time()
-        await QwenReplyAsync._upload_page(page, video_path, tag=tag)
+        await QwenReplyAsync._upload_page(page, upload_path, tag=tag)
         dt_upload = time_module.time() - t_upload
-        log.info(f"  [{tag}] [sub 1/4 upload] dt={dt_upload:.2f}s size={video_size_mb:.1f}MB "
-                 f"throughput={video_size_mb/dt_upload if dt_upload > 0 else 0:.2f}MB/s")
+        log.info(f"  [{tag}] [sub 1/4 upload] dt={dt_upload:.2f}s size={upload_size_mb:.1f}MB "
+                 f"throughput={upload_size_mb/dt_upload if dt_upload > 0 else 0:.2f}MB/s")
         if dt_upload > 30:
             log.warn(f"  [{tag}] [sub 1/4 upload] ANOMALIA upload demorou {dt_upload:.2f}s "
                      f"— rede lenta ou Qwen processando upload")
@@ -118,6 +181,13 @@ async def _ask_capa_titulo_direct(page, video_path, tag='capa+titulo', timeout=1
         dt = time_module.time() - t0
         log.error(f"  [{tag}] FALHOU em {dt:.2f}s — {e}")
         raise
+    finally:
+        if downscaled_path:
+            try:
+                os.remove(downscaled_path)
+                log.debug(f"  [{tag}] Temp downscale removido: {Path(downscaled_path).name}")
+            except Exception:
+                pass
 
 
 async def _perguntar_linha_direct(page, grid_path, cell_h, tag='linha', timeout=120, total_linhas=80):

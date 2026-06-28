@@ -3,6 +3,7 @@ import sys
 import secrets
 import subprocess
 import time as time_module
+import psutil
 from datetime import datetime
 from pathlib import Path
 
@@ -186,10 +187,10 @@ def processar_jobs_com_pool():
     num_prep = min(pool.max_concurrent_jobs, MAX_PARALLEL_JOBS) if MAX_PARALLEL_JOBS > 0 else pool.max_concurrent_jobs
     num_render = num_prep
     if num_render > 1 and "FFMPEG_THREADS_PER_RENDER" not in os.environ:
-        cpu_count = os.cpu_count() or 4
+        cpu_count = psutil.cpu_count(logical=False) or 2
         threads_per_render = max(1, cpu_count // num_render)
         os.environ["FFMPEG_THREADS_PER_RENDER"] = str(threads_per_render)
-        print(f"  [{ts()}] CPU: {cpu_count} cores, {num_render} renders -> "
+        print(f"  [{ts()}] CPU: {cpu_count} nuc físicos, {num_render} renders -> "
               f"FFmpeg threads/render={threads_per_render}")
     elif "FFMPEG_THREADS_PER_RENDER" not in os.environ:
         os.environ["FFMPEG_THREADS_PER_RENDER"] = "0"
@@ -240,9 +241,9 @@ def processar_jobs_com_pool():
             print(f"  [{ts()}] Todos os jobs concluídos!")
             break
 
-        # Safety: se não houve mudança em 5 minutos (300 iterações de 1s), abortar
-        if idle_iterations > 300:
-            print(f"  [{ts()}] TIMEOUT: jobs ainda ativos após 5min sem progresso")
+        # Safety: se não houve mudança em 15 minutos (900 iterações de 1s), abortar
+        if idle_iterations > 900:
+            print(f"  [{ts()}] TIMEOUT: jobs ainda ativos após 15min sem progresso")
             log.error(f"TERMINAL: timeout — {active} jobs ainda ativos")
             break
 
@@ -295,8 +296,24 @@ def op_processar():
 
     print(f"\n  [{ts()}] Processamento concluido em {elapsed:.0f}s")
 
+    # Mover arquivos de sessoes anteriores para .old/
     if editado.exists():
-        arquivos = list(editado.glob("*.mp4"))
+        old_dir = editado / ".old"
+        for f in list(editado.glob("*.mp4")):
+            if f.stat().st_mtime < t0:
+                old_dir.mkdir(parents=True, exist_ok=True)
+                dest = old_dir / f.name
+                # Evitar sobrescrever: adicionar timestamp se ja existir
+                if dest.exists():
+                    dest = old_dir / f"{f.stem}_{int(t0)}_{f.suffix}"
+                f.rename(dest)
+
+    # Listar apenas arquivos criados nesta sessao (modificacao >= t0)
+    if editado.exists():
+        arquivos = sorted(
+            [f for f in editado.glob("*.mp4") if f.stat().st_mtime >= t0 - 5],
+            key=lambda f: f.stat().st_mtime
+        )
         if arquivos:
             print(f"  Videos gerados ({len(arquivos)}):")
             for f in arquivos:
@@ -304,7 +321,7 @@ def op_processar():
                 print(f"    \u2705 {f.name}  ({size/1024/1024:.1f}MB)")
             print(f"\n  Pasta: {editado}")
         else:
-            print("  Nenhum video .mp4 encontrado na pasta editado.")
+            print("  Nenhum video foi gerado nesta sessao.")
             arquivos = []
     else:
         print("  Nenhum video foi gerado.")

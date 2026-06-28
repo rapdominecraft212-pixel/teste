@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import psutil
 import threading
 import traceback
 from pathlib import Path
@@ -387,10 +388,10 @@ def run_pipeline_workers(pool=None):
     # Ajustar FFmpeg threads por render para evitar contenção de CPU
     # Com N renders paralelos, cada FFmpeg deve usar ~cores/N threads
     if num_render > 1 and "FFMPEG_THREADS_PER_RENDER" not in os.environ:
-        cpu_count = os.cpu_count() or 4
+        cpu_count = psutil.cpu_count(logical=False) or 2
         threads_per_render = max(1, cpu_count // num_render)
         os.environ["FFMPEG_THREADS_PER_RENDER"] = str(threads_per_render)
-        log.info(f"CPU: {cpu_count} cores, {num_render} renders -> "
+        log.info(f"CPU: {cpu_count} nuc físicos, {num_render} renders -> "
                  f"FFmpeg threads/render={threads_per_render}")
     elif "FFMPEG_THREADS_PER_RENDER" not in os.environ:
         os.environ["FFMPEG_THREADS_PER_RENDER"] = "0"  # Usa todos os cores (1 render)

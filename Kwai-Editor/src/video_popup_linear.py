@@ -45,7 +45,14 @@ def _ffmpeg_threads():
     return "0"
 
 # === Fase 1: pre-render do background blur ===
-USE_PRERENDERED_BG = True
+# DESATIVADO: o pre-render via ffmpeg aplica gblur=sigma=10 na resolução original
+# (720x1274) com threads=1 (em renders paralelos), o que excede o timeout de 180s
+# no i3-2120. O fallback Python faz downsample para 160px de largura antes do blur,
+# reduzindo o trabalho em ~38x e terminando em tempo hábil. Resultado visual é
+# equivalente porque o bg fica desfocado atrás do popup.
+# Para reativar: voltar para True E ajustar o filtergraph (downsample antes do blur)
+# ou aumentar timeout para 300s.
+USE_PRERENDERED_BG = False
 PRERENDER_BG_SIGMA = 10  # Gaussian blur sigma (gblur) — blur suave para background
 
 # === Fase 2: pre-render do popup com canal alpha ===

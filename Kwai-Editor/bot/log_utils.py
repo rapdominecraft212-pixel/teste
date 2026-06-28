@@ -62,6 +62,14 @@ class Logger:
     def warn(self, msg: str):
         self._write("WARN", msg)
 
+    # Alias para warning() — compatibilidade com biblioteca logging do Python.
+    # O pool (qwen_account_pool.py) e possivelmente outros modulos usam
+    # log.warning() em vez de log.warn(). Sem este alias, qualquer chamada
+    # dispara AttributeError: 'Logger' object has no attribute 'warning'
+    # que e engolido pelo keep-alive loop (vide log 28/06 20:26:41).
+    def warning(self, msg: str):
+        self._write("WARN", msg)
+
     def error(self, msg: str):
         self._write("ERROR", msg)
 

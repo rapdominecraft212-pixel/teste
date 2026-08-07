@@ -1,10 +1,10 @@
-skills/
-node_modules/
-upload/
-tool-results/
+```
+# HTML files (if generated/temporary)
+*.html
 
-# Cópia local persistente do Kwai-Editor para testes do agente GLM.
-# Não é versionada no git — serve como backup local que sobrevive a
-# `kwai_bridge.py setup` (que faz git reset --hard origin/main).
-# Para restaurar a cópia: cp -r Kwai-Editor kwai-editor-test
-kwai-editor-test/
+# Temp files
+*.tmp
+
+# Logs
+*.log
+```

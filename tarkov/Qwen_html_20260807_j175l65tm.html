@@ -195,16 +195,16 @@ body.inv #hud{opacity:.25}
 body.touch.playing #touchUI{display:block}
 #joyBase{position:fixed;width:128px;height:128px;border-radius:50%;display:none;border:2px solid rgba(217,164,65,.4);background:rgba(20,22,18,.35);transform:translate(-50%,-50%)}
 #joyStick{position:absolute;left:50%;top:50%;width:58px;height:58px;border-radius:50%;background:rgba(217,164,65,.85);transform:translate(-50%,-50%)}
-.tbtn{pointer-events:auto;position:fixed;border-radius:50%;border:1.5px solid var(--line2);background:rgba(20,22,18,.55);color:var(--acc);font-family:'Chakra Petch';font-size:11px;display:flex;align-items:center;justify-content:center;text-transform:uppercase;touch-action:none}
+.tbtn{pointer-events:auto;position:fixed;border-radius:50%;border:1.5px solid var(--line2);background:rgba(20,22,18,.55);color:var(--acc);font-family:'Chakra Petch';font-size:10px;display:flex;align-items:center;justify-content:center;text-transform:uppercase;touch-action:none}
 .tbtn.active{background:rgba(217,164,65,.9);color:#141613}
-#btnFire{right:calc(22px + env(safe-area-inset-right));bottom:calc(120px + env(safe-area-inset-bottom));width:96px;height:96px;font-size:12px;border-width:2px}
-#btnFireL{left:calc(102px + env(safe-area-inset-left));bottom:min(calc(176px + env(safe-area-inset-bottom)),26vh);width:70px;height:70px;opacity:.85}
-#btnAim{right:calc(130px + env(safe-area-inset-right));bottom:min(calc(186px + env(safe-area-inset-bottom)),27vh);width:66px;height:66px}
-#btnReload{right:calc(130px + env(safe-area-inset-right));bottom:calc(92px + env(safe-area-inset-bottom));width:60px;height:60px}
-#btnJump{right:calc(22px + env(safe-area-inset-right));bottom:min(calc(236px + env(safe-area-inset-bottom)),33vh);width:64px;height:64px}
-#btnCrouch{left:calc(18px + env(safe-area-inset-left));bottom:calc(96px + env(safe-area-inset-bottom));width:64px;height:64px}
-#btnSprint{left:calc(102px + env(safe-area-inset-left));bottom:calc(96px + env(safe-area-inset-bottom));width:64px;height:64px}
-#btnInv{left:calc(18px + env(safe-area-inset-left));bottom:min(calc(176px + env(safe-area-inset-bottom)),26vh);width:64px;height:64px}
+#btnFire{right:calc(18px + env(safe-area-inset-right));bottom:calc(100px + env(safe-area-inset-bottom));width:88px;height:88px;font-size:11px;border-width:2px}
+#btnFireL{left:calc(88px + env(safe-area-inset-left));bottom:calc(88px + env(safe-area-inset-bottom));width:64px;height:64px;opacity:.85}
+#btnAim{right:calc(118px + env(safe-area-inset-right));bottom:calc(178px + env(safe-area-inset-bottom));width:60px;height:60px}
+#btnReload{right:calc(118px + env(safe-area-inset-right));bottom:calc(78px + env(safe-area-inset-bottom));width:54px;height:54px}
+#btnJump{right:calc(18px + env(safe-area-inset-right));bottom:calc(198px + env(safe-area-inset-bottom));width:58px;height:58px}
+#btnCrouch{left:calc(18px + env(safe-area-inset-left));bottom:calc(78px + env(safe-area-inset-bottom));width:58px;height:58px}
+#btnSprint{left:calc(88px + env(safe-area-inset-left));bottom:calc(78px + env(safe-area-inset-bottom));width:58px;height:58px}
+#btnInv{left:calc(18px + env(safe-area-inset-left));bottom:calc(148px + env(safe-area-inset-bottom));width:58px;height:58px}
 #pauseBtn{position:fixed;top:calc(12px + env(safe-area-inset-top));right:14px;width:46px;height:46px;border-radius:6px;border:1px solid var(--line2);background:rgba(20,22,18,.55);color:var(--acc);display:none;z-index:7;align-items:center;justify-content:center;font-size:14px}
 body.touch.playing #pauseBtn{display:flex}
 #scrPause{background:rgba(6,8,8,.82);z-index:40}
@@ -344,6 +344,14 @@ body.touch.playing #pauseBtn{display:flex}
       <div class="statRow" style="margin-top:4px"><span>PESO</span><span id="wKg2">0/30 kg</span></div></div>
   </div>
 </div></div>
+<script>
+window.addEventListener('DOMContentLoaded',()=>{
+  const stashBtn=document.querySelector('.mmItem[data-s="scrStash"]');
+  if(stashBtn){stashBtn.addEventListener('click',()=>{
+    setTimeout(()=>{if(typeof renderInv==='function')renderInv();},50);
+  });}
+});
+</script>
 <div id="scrTraders" class="screen"><div class="scrInner">
   <div class="backBar"><button class="bBtn" data-back>◂ VOLTAR</button><h2>COMERCIANTES</h2><div class="right">LEALDADE DESBLOQUEIA CATÁLOGO</div></div>
   <div id="trWrap"><div id="trList"></div>
@@ -720,8 +728,9 @@ function openMod(w){hideActions();const box=$('modBox');
  render();$('modPanel').classList.add('on');}
 const cur={x:innerWidth/2,y:innerHeight/2};
 window.addEventListener('pointermove',e=>{if(!(locked&&!isTouch)){cur.x=e.clientX;cur.y=e.clientY;}},{passive:true});
-let drag=null;const ghost=$('ghost'),rotBtn=$('rotBtn');
+let drag=null,dragTargetWeapon=null;const ghost=$('ghost'),rotBtn=$('rotBtn');
 function beginDrag(it,srcEl){if(drag)return;const d=dims(it);drag={it,w:d.w,h:d.h,sx:cur.x,sy:cur.y,moved:false,srcEl};
+ dragTargetWeapon=null;
  ghost.style.display='block';if(isTouch||!locked)rotBtn.style.display='block';
  sizeGhost();moveGhost();hideActions();
  window.addEventListener('pointermove',dragMove);
@@ -731,7 +740,12 @@ function sizeGhost(){ghost.style.width=drag.w*CELL+'px';ghost.style.height=drag.
  ghost.innerHTML=`<div class="it c-${d.cat} big" style="position:absolute;inset:0"><span class="ic">${d.ic}</span><span class="nm">${d.n}</span></div>`;}
 function moveGhost(){if(!drag)return;ghost.style.left=(cur.x-drag.w*CELL/2)+'px';ghost.style.top=(cur.y-drag.h*CELL/2)+'px';}
 function dragMove(e){if(!(locked&&!isTouch)){cur.x=e.clientX;cur.y=e.clientY;}
- if(Math.hypot(cur.x-drag.sx,cur.y-drag.sy)>7)drag.moved=true;moveGhost();}
+ if(Math.hypot(cur.x-drag.sx,cur.y-drag.sy)>7)drag.moved=true;
+ const t=document.elementFromPoint(cur.x,cur.y);
+ const wpnEl=t&&t.closest?t.closest('.it'):null;
+ if(wpnEl){const wpnIt=uidMap[wpnEl.dataset.uid];if(wpnIt&&ITEMS[wpnIt.def].cat==='weapon')dragTargetWeapon=wpnIt;else dragTargetWeapon=null;}
+ else dragTargetWeapon=null;
+ moveGhost();}
 function cancelDrag(){window.removeEventListener('pointermove',dragMove);
  ghost.style.display='none';rotBtn.style.display='none';drag=null;}
 function rotateDrag(){if(!drag)return;drag.it.rot=!drag.it.rot;const d=dims(drag.it);drag.w=d.w;drag.h=d.h;sizeGhost();buzz(6);}
@@ -741,6 +755,8 @@ function dragUp(){window.removeEventListener('pointermove',dragMove);window.remo
  const it=drag.it,d=dims(it),key=ownedKey(it),moved=drag.moved,srcEl=drag.srcEl;
  drag=null;
  if(!moved){showActions(it,srcEl);return;}
+ if(dragTargetWeapon&&ITEMS[it.def].cat==='mod'){
+  showModPopupForWeapon(dragTargetWeapon,it);return;}
  const t=document.elementFromPoint(cur.x,cur.y);
  const hb=t&&t.closest?t.closest('.hbSlot'):null;
  const gEl=t&&t.closest?t.closest('.grid'):null,sEl=t&&t.closest?t.closest('.slot'):null;
@@ -757,11 +773,31 @@ function dragUp(){window.removeEventListener('pointermove',dragMove);window.remo
    if(contentsFit(key,null)){moveOwned(it,null);removeFromLoc(it);equip[sid]=it;wStats=weaponStats(equip.primary);rebuildMods();buzz(6);}
    else toast('ESVAZIE ANTES DE MOVER');}}
  syncDynGrids();renderInv();if(invOpen)renderRaidInv();}
+function showModPopupForWeapon(wpnIt,modIt){
+ const modD=ITEMS[modIt.def],wpnD=ITEMS[wpnIt.def];
+ const box=$('modBox');box.innerHTML=`<h2>${wpnD.n}</h2><div id="modStats">CONECTAR: ${modD.ic} ${modD.n}</div>`;
+ const row=document.createElement('div');row.className='modRow';
+ row.innerHTML=`<div style="display:flex;align-items:center;gap:10px"><span class="sn">${modD.n}</span><span class="mn">SLOT: ${modD.ms.toUpperCase()}</span></div>`;
+ const btns=document.createElement('div');btns.style.cssText='display:flex;gap:8px;margin-top:8px';
+ const confirmBtn=document.createElement('button');confirmBtn.textContent='CONECTAR';confirmBtn.style.borderColor='var(--acc)';confirmBtn.style.color='var(--acc)';
+ confirmBtn.onclick=()=>{const wpn=equip.primary;if(wpn&&wpn.uid===wpnIt.uid){attachMod(wpn,modD.ms,modIt);}else{toast('ARMA NÃO EQUIPADA');}$('modPanel').classList.remove('on');};
+ btns.appendChild(confirmBtn);
+ const cancelBtn=document.createElement('button');cancelBtn.textContent='CANCELAR';
+ cancelBtn.onclick=()=>{$('modPanel').classList.remove('on');};
+ btns.appendChild(cancelBtn);
+ row.appendChild(btns);box.appendChild(row);
+ const c=document.createElement('button');c.id='modClose';c.textContent='✕ FECHAR';c.onclick=()=>{$('modPanel').classList.remove('on');};
+ box.appendChild(c);
+ $('modPanel').classList.add('on');}
 /* ============ TELAS ============ */
 let mode='menu',engaged=false,invOpen=false,locked=false,mapSel='sector01';
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));if(id)$(id).classList.add('on');}
 document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',()=>{buzz(6);hideActions();show('scrMenu');}));
-document.querySelectorAll('.mmItem').forEach(b=>b.addEventListener('click',()=>{buzz(6);show(b.dataset.s);}));
+document.querySelectorAll('.mmItem').forEach(b=>b.addEventListener('click',()=>{buzz(6);
+  const target=b.dataset.s;
+  if(target==='scrStash'){renderInv();}
+  show(target);
+}));
 $('btnDeploy').addEventListener('click',()=>{buzz(8);show('scrDeploy');});
 let toastT=null;
 function toast(m){const el=$('toast');el.textContent=m;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('on'),3200);}

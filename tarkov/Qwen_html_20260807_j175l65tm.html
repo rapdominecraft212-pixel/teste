@@ -228,12 +228,13 @@ body.touch.playing #pauseBtn{display:flex}
  #depOpts{padding:14px;padding-bottom:90px}
  .optBlock{margin-bottom:16px}
  #btnStart{position:sticky;bottom:8px;width:100%;padding:15px 10px;box-shadow:0 -8px 24px rgba(0,0,0,.6);z-index:2}
- #stWrap{flex-direction:column;overflow-y:auto;overscroll-behavior:contain}
+ #stWrap{flex-direction:column-reverse;overflow-y:auto;overscroll-behavior:contain}
  #stLeft{width:100%;border-right:none;border-bottom:1px solid var(--line);padding:12px}
  #stMid{overflow:visible;align-items:flex-start;padding:12px}
  #stRight{display:none}
  .invT{font-size:9px;margin:8px 0 6px}
- .slotWrap{gap:6px}.slot .sl{font-size:7px}
+ .slotWrap{gap:4px}.slot{width:36px;height:36px;font-size:10px}.slot .sl{font-size:6px;top:2px;left:4px}
+ .it{width:32px!important;height:32px!important}.it .ic{font-size:12px}
  #trWrap{flex-direction:column}
  #trList{width:100%;display:flex;overflow-x:auto;overflow-y:hidden;border-right:none;border-bottom:1px solid var(--line);flex:none}
  .trCard{min-width:126px;padding:10px;border-bottom:none;border-right:1px solid var(--line)}

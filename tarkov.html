@@ -1059,7 +1059,7 @@ camera.rotation.order='YXZ';scene.add(camera);
  scene.add(new THREE.Mesh(new THREE.SphereGeometry(420,24,16),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),side:THREE.BackSide,fog:false})));}
 scene.add(new THREE.HemisphereLight(0xbfd0dd,0x4c4b40,1.0));
 const sun=new THREE.DirectionalLight(0xfff1dd,1.5);sun.position.set(38,58,22);sun.castShadow=true;
-sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-60,right:60,top:60,bottom:-60,near:5,far:180});sun.shadow.bias=-.0006;scene.add(sun);
+sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-60,right:60,top:60,bottom:-60,near:5,far:180});sun.shadow.bias=-.001;sun.shadow.normalBias=0.02;scene.add(sun);
 /* ---------- LIB: assets compartilhados ---------- */
 const LIB={geo:{},mat:{},tex:{}};
 LIB.geo.box=new THREE.BoxGeometry(1,1,1);
@@ -1085,23 +1085,23 @@ LIB.tex.concrete=ctex(1024,(g,s)=>{g.fillStyle='#74746a';g.fillRect(0,0,s,s);
  for(let i=0;i<9000;i++){const v=100+Math.random()*60;g.fillStyle=`rgba(${v},${v},${v-6},${Math.random()*.16})`;g.fillRect(Math.random()*s,Math.random()*s,Math.random()*3+1,Math.random()*3+1);}
  g.strokeStyle='rgba(20,20,18,.16)';g.lineWidth=2;const st=s/4;
  for(let i=0;i<=4;i++){g.beginPath();g.moveTo(i*st,0);g.lineTo(i*st,s);g.stroke();g.beginPath();g.moveTo(0,i*st);g.lineTo(s,i*st);g.stroke();}},110,110);
-const SM=(map,rough=.9,extra)=>new THREE.MeshStandardMaterial(Object.assign({map,roughness:rough},extra||{}));
+const SM=(map,rough=.9,extra)=>new THREE.MeshStandardMaterial(Object.assign({map,roughness:rough,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1},extra||{}));
 LIB.mat.plaster=SM(LIB.tex.plaster);LIB.mat.woodwall=SM(LIB.tex.woodwall);LIB.mat.roof=SM(LIB.tex.roof);
 LIB.mat.dirt=SM(LIB.tex.dirt);LIB.mat.vground=SM(LIB.tex.vground);LIB.mat.floor=SM(LIB.tex.floor);
 LIB.mat.bark=SM(LIB.tex.bark,.8);LIB.mat.win=SM(LIB.tex.win,.6,{side:THREE.DoubleSide});LIB.mat.door=SM(LIB.tex.door);
 LIB.mat.brick=SM(LIB.tex.brick);LIB.mat.rug=SM(LIB.tex.rug);LIB.mat.concrete=SM(LIB.tex.concrete,.96);
-LIB.mat.grass=new THREE.MeshStandardMaterial({map:LIB.tex.grass,transparent:true,alphaTest:.3,side:THREE.DoubleSide,roughness:1});
-LIB.mat.leaf=new THREE.MeshStandardMaterial({color:0x4d6b38,roughness:1});
-LIB.mat.leafPine=new THREE.MeshStandardMaterial({color:0x2e4a2e,roughness:1});
-LIB.mat.straw=new THREE.MeshStandardMaterial({color:0xb0a060,roughness:1});
-LIB.mat.metalR=new THREE.MeshStandardMaterial({color:0x6a4a3a,roughness:.9});
-LIB.mat.dark=new THREE.MeshStandardMaterial({color:0x2a2622,roughness:.9});
-LIB.mat.white=new THREE.MeshStandardMaterial({color:0xd8d4c8,roughness:.8});
-LIB.mat.car=new THREE.MeshStandardMaterial({color:0x7a2a24,roughness:.7,metalness:.3});
-LIB.mat.car2=new THREE.MeshStandardMaterial({color:0x3a4a52,roughness:.7,metalness:.3});
-LIB.mat.crate=new THREE.MeshStandardMaterial({color:0x8a6a42,roughness:.85});
-LIB.mat.steel=new THREE.MeshStandardMaterial({color:0x9b9b93,roughness:.9});
-LIB.mat.fabric=new THREE.MeshStandardMaterial({color:0x5a6a72,roughness:1});
+LIB.mat.grass=new THREE.MeshStandardMaterial({map:LIB.tex.grass,transparent:true,alphaTest:.3,side:THREE.DoubleSide,roughness:1,polygonOffset:true,polygonOffsetFactor:2,polygonOffsetUnits:1});
+LIB.mat.leaf=new THREE.MeshStandardMaterial({color:0x4d6b38,roughness:1,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+LIB.mat.leafPine=new THREE.MeshStandardMaterial({color:0x2e4a2e,roughness:1,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+LIB.mat.straw=new THREE.MeshStandardMaterial({color:0xb0a060,roughness:1,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+LIB.mat.metalR=new THREE.MeshStandardMaterial({color:0x6a4a3a,roughness:.9,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+LIB.mat.dark=new THREE.MeshStandardMaterial({color:0x2a2622,roughness:.9,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+LIB.mat.white=new THREE.MeshStandardMaterial({color:0xd8d4c8,roughness:.8,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+LIB.mat.car=new THREE.MeshStandardMaterial({color:0x7a2a24,roughness:.7,metalness:.3,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+LIB.mat.car2=new THREE.MeshStandardMaterial({color:0x3a4a52,roughness:.7,metalness:.3,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+LIB.mat.crate=new THREE.MeshStandardMaterial({color:0x8a6a42,roughness:.85,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+LIB.mat.steel=new THREE.MeshStandardMaterial({color:0x9b9b93,roughness:.9,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
+LIB.mat.fabric=new THREE.MeshStandardMaterial({color:0x5a6a72,roughness:1,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
 /* ---------- helpers de construção ---------- */
 function mesh(geo,mat,x,y,z,sx=1,sy=1,sz=1,r=[0,0,0]){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.rotation.set(r[0],r[1],r[2]);return m;}
 function add(w,m,o={}){w.group.add(m);if(o.shoot!==false)w.shootables.push(m);m.castShadow=o.cast!==false;m.receiveShadow=true;return m;}
@@ -1116,11 +1116,11 @@ function instancer(geo,mat){const a=[];return{add(x,y,z,sx=1,sy=1,sz=1,ry=0,rx=0
 function houseI(w,o,I){
  const W=o.w||6,D=o.d||5,H=2.6,T=.26,ry=(o.ry||0),rad=ry*Math.PI/2;
  const P=(lx,lz)=>{const c=Math.cos(rad),s=Math.sin(rad);return[o.x+lx*c-lz*s,o.z+lx*s+lz*c];};
- const odd=ry%2===1;
  const seg=(lx,lz,len,h,localRy,yC)=>{const[x,z]=P(lx,lz);
-  I.walls.add(x,yC??h/2,z,localRy?T:len,h,localRy?len:T,rad+(localRy?Math.PI/2:0));
-  const sw=(localRy?1:0)+(odd?1:0);const isSwap=sw%2===1;
-  collB(w,x,z,isSwap?T/2+.06:len/2,isSwap?len/2:T/2+.06);};
+  const wallRot=rad+(localRy?Math.PI/2:0);
+  I.walls.add(x,yC??h/2,z,localRy?T:len,h,localRy?len:T,wallRot);
+  const hw=(localRy?T:len)/2,hd=(localRy?len:T)/2;
+  collB(w,x,z,hw+.03,hd+.03);};
  {const[x,z]=P(0,0);I.floors.add(x,.06,z,W-.2,.12,D-.2,rad);}
  seg(0,-D/2,W,H,0);seg(-W/2,0,D,H,1);seg(W/2,0,D,H,1);
  seg(-1.1,D/2,3.8,H,0);seg(2.6,D/2,.8,H,0);
@@ -1154,7 +1154,7 @@ function car(w,x,z,ry,mat){const g=new THREE.Group();
  const b=mesh(LIB.geo.box,mat,0,.75,0,3.8,.9,1.7);g.add(b);
  const c=mesh(LIB.geo.box,mat,-.2,1.45,0,1.9,.6,1.5);g.add(c);
  for(const[wx,wz]of[[-1.3,-.85],[-1.3,.85],[1.3,-.85],[1.3,.85]]){const wh=mesh(LIB.geo.cyl,LIB.mat.dark,wx,.35,wz,.32,.64,.32,[0,0,Math.PI/2]);g.add(wh);}
- g.position.set(x,0,z);g.rotation.y=ry;w.group.add(g);g.traverse(m=>{if(m.isMesh){w.shootables.push(m);m.castShadow=true;}});collB(w,x,z,2,1.1);}
+ g.position.set(x,0,z);g.rotation.y=ry;w.group.add(g);g.traverse(m=>{if(m.isMesh){w.shootables.push(m);m.castShadow=true;m.receiveShadow=true;}});collB(w,x,z,2,1.1);}
 function pole(w,x,z){add(w,mesh(LIB.geo.cyl,LIB.mat.dark,x,3,z,.14,6,.14));box(w,LIB.mat.dark,x,5.7,z,1.4,.08,.08);collC(w,x,z,.2);}
 function hay(w,x,z,s){add(w,mesh(LIB.geo.cone,LIB.mat.straw,x,s*.7,z,s*1.6,s*1.4,s*1.6));collC(w,x,z,s*.9);}
 function fencePlot(w,x,z,len,ry=0,gap=null){
@@ -1172,15 +1172,15 @@ function fencePlot(w,x,z,len,ry=0,gap=null){
 function garden(w,x,z){for(let r=0;r<3;r++){box(w,LIB.mat.dirt,x,.09,z+r*.9,3.4,.18,1.0,0,{cast:false});
  for(let i=0;i<6;i++)add(w,mesh(LIB.geo.sph,LIB.mat.leaf,x-1.4+i*.56,.28,z+r*.9,.3,.25,.3),{cast:false});}}
 function busstop(w,x,z,ry){box(w,LIB.mat.steel,x,1.1,z,.1,2.2,.1);box(w,LIB.mat.steel,x+2.4,1.1,z,.1,2.2,.1);
- box(w,LIB.mat.roof,x+1.2,2.25,z,3,.08,1.4);box(w,LIB.mat.crate,x+1.2,.5,z,.06,.5,2.6? 1.2:1.2);box(w,LIB.mat.crate,x+1.2,.45,z,2.4,.08,.5);}
+ box(w,LIB.mat.roof,x+1.2,2.25,z,3,.08,1.4);box(w,LIB.mat.crate,x+1.2,.5,z,.06,.5,1.2);box(w,LIB.mat.crate,x+1.2,.45,z,2.4,.08,.5);}
 /* ---------- MAPA: VILA RUSSA ---------- */
 function buildVila(w){
  w.spawn.set(-42,0,0);w.clamp={hw:52,hd:40};
  const gnd=add(w,mesh(new THREE.PlaneGeometry(120,95),LIB.mat.vground,0,0,0),{cast:false,shoot:false});
  gnd.rotation.x=-Math.PI/2;gnd.receiveShadow=true;
- const road=add(w,mesh(new THREE.PlaneGeometry(104,7),LIB.mat.dirt,0,.02,0),{cast:false,shoot:false});
+ const road=add(w,mesh(new THREE.PlaneGeometry(104,7),LIB.mat.dirt,0,.05,0),{cast:false,shoot:false});
  road.rotation.x=-Math.PI/2;road.receiveShadow=true;
- const path=add(w,mesh(new THREE.PlaneGeometry(4,40),LIB.mat.dirt,8,.02,-14),{cast:false,shoot:false});
+ const path=add(w,mesh(new THREE.PlaneGeometry(4,40),LIB.mat.dirt,8,.05,-14),{cast:false,shoot:false});
  path.rotation.x=-Math.PI/2;
  const HOMES=[[-30,-10,0],[-16,-10,0],[0,-10,0],[16,-10,0],[30,-10,0],[-24,10,2],[-10,10,2],[6,10,2],[22,10,2]];
  const I={walls:instancer(LIB.geo.box,LIB.mat.woodwall),floors:instancer(LIB.geo.box,LIB.mat.floor),
@@ -1193,7 +1193,7 @@ function buildVila(w){
  [['floors',false],['wins',false],['doors',false],['fabrics',false],['rugs',false]].forEach(([k,c])=>I[k].finish(w.group,c));
  const spl=instancer(LIB.geo.plane,LIB.mat.dirt);
  HOMES.forEach(h=>{const dir=h[2]===2?-1:1,dx=h[2]===2?-1.5:1.5;
-  for(const k of[1.2,3.2,5.2])spl.add(h[0]+dx+Math.sin(k+h[0])*.18,.03,h[1]+dir*(2.5-k),1.3-k*.12,.75-k*.08,1,0,-Math.PI/2);});
+  for(const k of[1.2,3.2,5.2])spl.add(h[0]+dx+Math.sin(k+h[0])*.18,.06,h[1]+dir*(2.5-k),1.3-k*.12,.75-k*.08,1,0,-Math.PI/2);});
  spl.finish(w.group,false);
  const bt=instancer(LIB.geo.cyl,LIB.mat.bark),bc=instancer(LIB.geo.sph,LIB.mat.leaf);
  const pt=instancer(LIB.geo.cyl,LIB.mat.dark),pc=instancer(LIB.geo.cone,LIB.mat.leafPine);
@@ -1207,11 +1207,11 @@ function buildVila(w){
   pt.add(x,1.5*s,z,.24*s,3*s,.24*s);pc.add(x,3.6*s,z,2.4*s,2.6*s,2.4*s);pc.add(x,5*s,z,1.7*s,2*s,1.7*s);pc.add(x,6.2*s,z,1.1*s,1.5*s,1.1*s);collC(w,x,z,.18);}
  for(let i=0;i<34;i++){const x=R(-50,50),z=R(-38,38);if(Math.abs(z)<5)continue;bs.add(x,.4,z,R(.7,1.3),R(.6,1),R(.7,1.3));}
  for(let i=0;i<520;i++){const x=R(-52,52),z=R(-40,40);if(Math.abs(z)<4)continue;gr.add(x,.28,z,R(.5,.9),R(.5,1),1,R(0,3.1));}
- well(w,10,3.1);barrel(w,-14.5,7);barrel(w,-13.8,7.4);barrel(w,17,7);barrel(w,33.5,-5.5);
+ well(w,10,5);barrel(w,-14.5,7);barrel(w,-12.5,8.2);barrel(w,17,7);barrel(w,33.5,-5.5);
  woodpile(w,-2.8,7.2);woodpile(w,24.3,9.8);woodpile(w,-27.5,-13.6);
  car(w,-19,5.6,.3,LIB.mat.car);car(w,12,-6.2,2.2,LIB.mat.car2);
- for(let x=-42;x<=42;x+=14)pole(w,x,4.6);
- for(let x=-42;x<42;x+=14)box(w,LIB.mat.dark,x+7,5.6,4.6,14,.02,.02,0,{cast:false,shoot:false});
+ for(let x=-42;x<=42;x+=14)pole(w,x,6);
+ for(let x=-42;x<42;x+=14)box(w,LIB.mat.dark,x+7,5.6,6,14,.02,.02,0,{cast:false,shoot:false});
  hay(w,-38,-16,1.4);hay(w,-36,-14,1);hay(w,40,16,1.5);
  fencePlot(w,-34,-15.5,8,0);fencePlot(w,-26,-15.5,3,Math.PI/2);fencePlot(w,-34,-12.5,8,0,[5.6,7.2]);
  fencePlot(w,-18.5,-18,5,0);fencePlot(w,-18.5,-18,4.5,Math.PI/2);fencePlot(w,-13.5,-18,5,0);fencePlot(w,-18.5,-13.5,5,0,[2.2,3.8]);
@@ -1223,7 +1223,7 @@ function buildVila(w){
  w.sfxZ.push({a:[-52,52,-3.5,3.5],t:'dirt'},{a:[6,10,-20,20],t:'dirt'});
  w.sfxZ.push({a:[-19,-13.8,-14.6,-17.4],t:'dirt'});
  w.sfxZ.push({a:[20.6,23.4,15.2,16.9],t:'dirt'});
- w.sfxZ.push({x:-14.5,z:7,r:.8,t:'metal'},{x:-13.8,z:7.4,r:.8,t:'metal'},{x:17,z:7,r:.8,t:'metal'},{x:33.5,z:-5.5,r:.8,t:'metal'});
+ w.sfxZ.push({x:-14.5,z:7,r:.8,t:'metal'},{x:-12.5,z:8.2,r:.8,t:'metal'},{x:17,z:7,r:.8,t:'metal'},{x:33.5,z:-5.5,r:.8,t:'metal'});
  w.sfxZ.push({x:-19,z:5.6,r:2.3,t:'car'},{x:12,z:-6.2,r:2.3,t:'car'});
  w.sfxZ.push({x:-38,z:-16,r:1.5,t:'straw'},{x:-36,z:-14,r:1,t:'straw'},{x:40,z:16,r:1.6,t:'straw'});
  w.sfxZ.push({x:-2.8,z:7.2,r:.7,t:'wood'},{x:24.3,z:9.8,r:.7,t:'wood'},{x:-27.5,z:-13.6,r:.7,t:'wood'});

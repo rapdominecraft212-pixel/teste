@@ -1118,45 +1118,47 @@ function houseI(w,o,I){
  const P=(lx,lz)=>{const c=Math.cos(rad),s=Math.sin(rad);return[o.x+lx*c-lz*s,o.z+lx*s+lz*c];};
  const seg=(lx,lz,len,h,localRy,yC)=>{const[x,z]=P(lx,lz);
   const wallRot=rad+(localRy?Math.PI/2:0);
-  I.walls.add(x,yC??h/2,z,localRy?T:len,h,localRy?len:T,wallRot);
+  I.walls.add(x,yC??h/2,z,localRy?T:len,h,localRy?len:T,0,wallRot,0);
   const hw=(localRy?T:len)/2,hd=(localRy?len:T)/2;
   collB(w,x,z,hw+.03,hd+.03);};
- {const[x,z]=P(0,0);I.floors.add(x,.06,z,W-.2,.12,D-.2,rad);}
+ {const[x,z]=P(0,0);I.floors.add(x,.06,z,W-.2,.12,D-.2,0,rad,0);}
  seg(0,-D/2,W,H,0);seg(-W/2,0,D,H,1);seg(W/2,0,D,H,1);
  seg(-1.1,D/2,3.8,H,0);seg(2.6,D/2,.8,H,0);
  {const[x,z]=P(1.5,D/2);
-  I.walls.add(x,2.32,z,1.4,.55,T,rad);
-  I.doors.add(x,z+.02,1.35,2.0,1,rad);}
- const win=(lx,lz,lry)=>{const[x,z]=P(lx,lz);I.wins.add(x,1.5,z,1.15,1.15,1,rad+lry);};
+  I.walls.add(x,2.32,z,1.4,.55,T,0,rad,0);
+  I.doors.add(x,z+.02,1.35,2.0,1,0,rad,0);}
+ const win=(lx,lz,lry)=>{const[x,z]=P(lx,lz);I.wins.add(x,1.5,z,1.15,1.15,1,0,rad+lry,0);};
  win(-1.5,D/2+.14,0);win(-W/2-.14,0,-Math.PI/2);win(W/2+.14,0,Math.PI/2);win(-1.5,-D/2-.14,Math.PI);
  const th=Math.atan2(1.5,3.5),sl=Math.hypot(3.5,1.5);
  {const[x,z]=P(0,0);
-  I.roofs.add(x,H+1.5+.14,z,.7,.28,D+1,rad);
-  I.roofs.add(x+1.75,H+.75,z,sl,.18,D+1,rad,-th);
-  I.roofs.add(x-1.75,H+.75,z,sl,.18,D+1,rad,th);}
- {const[x,z]=P(-2.1,-1.7);I.bricks.add(x,.95,z,1.1,1.9,1.1,rad);I.bricks.add(x,3.4,z,.42,1.8,.42,rad);I.bricks.add(x,4.5,z,.52,.2,.52,rad);collB(w,x,z,.6,.6);}
- {const[x,z]=P(.1,-.3);I.crates.add(x,.78,z,1.2,.07,.8,rad);collC(w,x,z,.7);}
- {const[x,z]=P(.2,.6);I.crates.add(x,.45,z,.4,.5,.4,rad);collC(w,x,z,.25);}
- {const[x,z]=P(2.3,-1.7);I.crates.add(x,.35,z,1.9,.35,.9,rad);I.fabrics.add(x,.55,z,1.7,.1,.8,rad);collB(w,x,z,1,.5);}
- {const[x,z]=P(-2.3,1.6);I.crates.add(x,1,z,.3,1.6,1.2,rad);collB(w,x,z,.18,.63);}
- {const[x,z]=P(0,.2);I.rugs.add(x,.13,z,2,1.4,1,rad);}
- {const[x,z]=P(1.5,D/2);I.crates.add(x,.08,z+.65,1.8,.15,1.1,rad);I.crates.add(x,.05,z+1.45,1.4,.1,1.0,rad);}
+  I.roofs.add(x,H+1.5+.14,z,.7,.28,D+1,0,rad,0);
+  I.roofs.add(x+1.75,H+.75,z,sl,.18,D+1,0,rad,-th);
+  I.roofs.add(x-1.75,H+.75,z,sl,.18,D+1,0,rad,th);}
+ {const[x,z]=P(-2.1,-1.7);I.bricks.add(x,.95,z,1.1,1.9,1.1,0,rad,0);I.bricks.add(x,3.4,z,.42,1.8,.42,0,rad,0);I.bricks.add(x,4.5,z,.52,.2,.52,0,rad,0);collB(w,x,z,.6,.6);}
+ {const[x,z]=P(.1,-.3);I.crates.add(x,.78,z,1.2,.07,.8,0,rad,0);collC(w,x,z,.7);}
+ {const[x,z]=P(.2,.6);I.crates.add(x,.45,z,.4,.5,.4,0,rad,0);collC(w,x,z,.25);}
+ {const[x,z]=P(2.3,-1.7);I.crates.add(x,.35,z,1.9,.35,.9,0,rad,0);I.fabrics.add(x,.55,z,1.7,.1,.8,0,rad,0);collB(w,x,z,1,.5);}
+ {const[x,z]=P(-2.3,1.6);I.crates.add(x,1,z,.3,1.6,1.2,0,rad,0);collB(w,x,z,.18,.63);}
+ {const[x,z]=P(0,.2);I.rugs.add(x,.13,z,2,1.4,1,0,rad,0);}
+ {const[x,z]=P(1.5,D/2);I.crates.add(x,.08,z+.65,1.8,.15,1.1,0,rad,0);I.crates.add(x,.05,z+1.45,1.4,.1,1.0,0,rad,0);}
   if(w.sfxZ){w.houses.push({x:o.x,z:o.z,hw:W/2,hd:D/2,ry:o.ry});
   w.sfxZ.push({a:[o.x-W/2,o.x+W/2,o.z-D/2,o.z+D/2],t:'wood'});}
 }
 /* ---------- FÁBRICAS: props da vila ---------- */
 function well(w,x,z){box(w,LIB.mat.brick,x,.45,z,1.6,.9,1.6);collC(w,x,z,.9);
  box(w,LIB.mat.dark,x-0.7,1.5,z,.08,1.4,.08);box(w,LIB.mat.dark,x+0.7,1.5,z,.08,1.4,.08);
- add(w,mesh(LIB.geo.cone,LIB.mat.roof,x,2.35,z,2.2,.7,2.2));}
-function barrel(w,x,z){add(w,mesh(LIB.geo.cyl,LIB.mat.metalR,x,.45,z,.55,.9,.55));collC(w,x,z,.4);}
-function woodpile(w,x,z,ry=0){for(let i=0;i<4;i++)add(w,mesh(LIB.geo.cyl,LIB.mat.crate,x+(i%2)*.34,.12+Math.floor(i/2)*.24,z+(i%2?0:.0),.3,.24,.3,[0,0,Math.PI/2]));collC(w,x,z,.6);}
+ const roofTop=add(w,mesh(LIB.geo.cone,LIB.mat.roof,x,2.35,z,2.2,.7,2.2));roofTop.castShadow=true;}
+function barrel(w,x,z){const bar=add(w,mesh(LIB.geo.cyl,LIB.mat.metalR,x,.45,z,.55,.9,.55));bar.castShadow=true;collC(w,x,z,.4);}
+function woodpile(w,x,z,ry=0){const logs=[[-.17,-.12],[.17,-.12],[-.17,.12],[.17,.12]];
+ for(let i=0;i<4;i++){const log=add(w,mesh(LIB.geo.cyl,LIB.mat.crate,x+logs[i][0],.18,z+logs[i][1],.3,.36,.3,[Math.PI/2,0,0]));log.castShadow=true;}
+ collC(w,x,z,.6);}
 function car(w,x,z,ry,mat){const g=new THREE.Group();
  const b=mesh(LIB.geo.box,mat,0,.75,0,3.8,.9,1.7);g.add(b);
  const c=mesh(LIB.geo.box,mat,-.2,1.45,0,1.9,.6,1.5);g.add(c);
  for(const[wx,wz]of[[-1.3,-.85],[-1.3,.85],[1.3,-.85],[1.3,.85]]){const wh=mesh(LIB.geo.cyl,LIB.mat.dark,wx,.35,wz,.32,.64,.32,[0,0,Math.PI/2]);g.add(wh);}
  g.position.set(x,0,z);g.rotation.y=ry;w.group.add(g);g.traverse(m=>{if(m.isMesh){w.shootables.push(m);m.castShadow=true;m.receiveShadow=true;}});collB(w,x,z,2,1.1);}
-function pole(w,x,z){add(w,mesh(LIB.geo.cyl,LIB.mat.dark,x,3,z,.14,6,.14));box(w,LIB.mat.dark,x,5.7,z,1.4,.08,.08);collC(w,x,z,.2);}
-function hay(w,x,z,s){add(w,mesh(LIB.geo.cone,LIB.mat.straw,x,s*.7,z,s*1.6,s*1.4,s*1.6));collC(w,x,z,s*.9);}
+function pole(w,x,z){const p=add(w,mesh(LIB.geo.cyl,LIB.mat.dark,x,3,z,.14,6,.14));p.castShadow=true;box(w,LIB.mat.dark,x,5.7,z,1.4,.08,.08);collC(w,x,z,.2);}
+function hay(w,x,z,s){const h=add(w,mesh(LIB.geo.cone,LIB.mat.straw,x,s*.7,z,s*1.6,s*1.4,s*1.6));h.castShadow=true;collC(w,x,z,s*.9);}
 function fencePlot(w,x,z,len,ry=0,gap=null){
  const ax=Math.abs(Math.cos(ry))>.5;
  const rail=(a,b)=>{if(b-a<.01)return;const c=(a+b)/2,cl=b-a;
@@ -1172,15 +1174,19 @@ function fencePlot(w,x,z,len,ry=0,gap=null){
 function garden(w,x,z){for(let r=0;r<3;r++){box(w,LIB.mat.dirt,x,.09,z+r*.9,3.4,.18,1.0,0,{cast:false});
  for(let i=0;i<6;i++)add(w,mesh(LIB.geo.sph,LIB.mat.leaf,x-1.4+i*.56,.28,z+r*.9,.3,.25,.3),{cast:false});}}
 function busstop(w,x,z,ry){box(w,LIB.mat.steel,x,1.1,z,.1,2.2,.1);box(w,LIB.mat.steel,x+2.4,1.1,z,.1,2.2,.1);
- box(w,LIB.mat.roof,x+1.2,2.25,z,3,.08,1.4);box(w,LIB.mat.crate,x+1.2,.5,z,.06,.5,1.2);box(w,LIB.mat.crate,x+1.2,.45,z,2.4,.08,.5);}
+ box(w,LIB.mat.roof,x+1.2,2.25,z,3,.08,1.4);box(w,LIB.mat.crate,x+1.2,.5,z,.06,.5,1.2);box(w,LIB.mat.crate,x+1.2,.45,z,2.4,.08,.5);
+ const benchX=x+1.2,benchZ=z+0.6;
+ box(w,LIB.mat.crate,benchX,.42,benchZ,1.8,.06,.35,0,{cast:false});
+ box(w,LIB.mat.crate,benchX-0.7,.25,benchZ,.08,.25,.35,0,{cast:false});
+ box(w,LIB.mat.crate,benchX+0.7,.25,benchZ,.08,.25,.35,0,{cast:false});}
 /* ---------- MAPA: VILA RUSSA ---------- */
 function buildVila(w){
  w.spawn.set(-42,0,0);w.clamp={hw:52,hd:40};
  const gnd=add(w,mesh(new THREE.PlaneGeometry(120,95),LIB.mat.vground,0,0,0),{cast:false,shoot:false});
  gnd.rotation.x=-Math.PI/2;gnd.receiveShadow=true;
- const road=add(w,mesh(new THREE.PlaneGeometry(104,7),LIB.mat.dirt,0,.05,0),{cast:false,shoot:false});
+ const road=add(w,mesh(new THREE.PlaneGeometry(104,7),LIB.mat.dirt,0,.06,0),{cast:false,shoot:false});
  road.rotation.x=-Math.PI/2;road.receiveShadow=true;
- const path=add(w,mesh(new THREE.PlaneGeometry(4,40),LIB.mat.dirt,8,.05,-14),{cast:false,shoot:false});
+ const path=add(w,mesh(new THREE.PlaneGeometry(4,40),LIB.mat.dirt,8,.06,-14),{cast:false,shoot:false});
  path.rotation.x=-Math.PI/2;
  const HOMES=[[-30,-10,0],[-16,-10,0],[0,-10,0],[16,-10,0],[30,-10,0],[-24,10,2],[-10,10,2],[6,10,2],[22,10,2]];
  const I={walls:instancer(LIB.geo.box,LIB.mat.woodwall),floors:instancer(LIB.geo.box,LIB.mat.floor),
@@ -1193,7 +1199,7 @@ function buildVila(w){
  [['floors',false],['wins',false],['doors',false],['fabrics',false],['rugs',false]].forEach(([k,c])=>I[k].finish(w.group,c));
  const spl=instancer(LIB.geo.plane,LIB.mat.dirt);
  HOMES.forEach(h=>{const dir=h[2]===2?-1:1,dx=h[2]===2?-1.5:1.5;
-  for(const k of[1.2,3.2,5.2])spl.add(h[0]+dx+Math.sin(k+h[0])*.18,.06,h[1]+dir*(2.5-k),1.3-k*.12,.75-k*.08,1,0,-Math.PI/2);});
+  for(const k of[1.2,3.2,5.2])spl.add(h[0]+dx+Math.sin(k+h[0])*.18,.07,h[1]+dir*(2.5-k),1.3-k*.12,.75-k*.08,1,0,-Math.PI/2,0);});
  spl.finish(w.group,false);
  const bt=instancer(LIB.geo.cyl,LIB.mat.bark),bc=instancer(LIB.geo.sph,LIB.mat.leaf);
  const pt=instancer(LIB.geo.cyl,LIB.mat.dark),pc=instancer(LIB.geo.cone,LIB.mat.leafPine);
@@ -1202,11 +1208,11 @@ function buildVila(w){
  for(let i=0;i<26;i++){const x=R(-50,50),z=R(-38,38);
   if(Math.abs(z)<7.5)continue;
   if(Math.abs(Math.abs(z)-10)<4.5&&HOMES.some(h=>Math.abs(x-h[0])<4.5))continue;
-  const s=R(.8,1.3);bt.add(x,1.7*s,z,.22*s,3.4*s,.22*s);bc.add(x,3.4*s,z,2.2*s,1.8*s,2.2*s);bc.add(x+ .6,2.8*s,z+.3,1.5*s,1.3*s,1.5*s);collC(w,x,z,.18);}
+  const s=R(.8,1.3);bt.add(x,1.7*s,z,.22*s,3.4*s,.22*s,0,0,0);bc.add(x,3.4*s,z,2.2*s,1.8*s,2.2*s,0,0,0);bc.add(x+ .6,2.8*s,z+.3,1.5*s,1.3*s,1.5*s,0,0,0);collC(w,x,z,.18);}
  for(let i=0;i<16;i++){const x=R(-52,52),z=(Math.random()<.5?-1:1)*R(20,38);const s=R(.9,1.4);
-  pt.add(x,1.5*s,z,.24*s,3*s,.24*s);pc.add(x,3.6*s,z,2.4*s,2.6*s,2.4*s);pc.add(x,5*s,z,1.7*s,2*s,1.7*s);pc.add(x,6.2*s,z,1.1*s,1.5*s,1.1*s);collC(w,x,z,.18);}
- for(let i=0;i<34;i++){const x=R(-50,50),z=R(-38,38);if(Math.abs(z)<5)continue;bs.add(x,.4,z,R(.7,1.3),R(.6,1),R(.7,1.3));}
- for(let i=0;i<520;i++){const x=R(-52,52),z=R(-40,40);if(Math.abs(z)<4)continue;gr.add(x,.28,z,R(.5,.9),R(.5,1),1,R(0,3.1));}
+  pt.add(x,1.5*s,z,.24*s,3*s,.24*s,0,0,0);pc.add(x,3.6*s,z,2.4*s,2.6*s,2.4*s,0,0,0);pc.add(x,5*s,z,1.7*s,2*s,1.7*s,0,0,0);pc.add(x,6.2*s,z,1.1*s,1.5*s,1.1*s,0,0,0);collC(w,x,z,.18);}
+ for(let i=0;i<34;i++){const x=R(-50,50),z=R(-38,38);if(Math.abs(z)<5)continue;bs.add(x,.4,z,R(.7,1.3),R(.6,1),R(.7,1.3),0,0,0);}
+ for(let i=0;i<520;i++){const x=R(-52,52),z=R(-40,40);if(Math.abs(z)<4)continue;gr.add(x,.28,z,R(.5,.9),R(.5,1),1,0,R(0,3.1),0);}
  well(w,10,5);barrel(w,-14.5,7);barrel(w,-12.5,8.2);barrel(w,17,7);barrel(w,33.5,-5.5);
  woodpile(w,-2.8,7.2);woodpile(w,24.3,9.8);woodpile(w,-27.5,-13.6);
  car(w,-19,5.6,.3,LIB.mat.car);car(w,12,-6.2,2.2,LIB.mat.car2);
